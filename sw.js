@@ -1,5 +1,5 @@
 /* TITANLOG service worker — يخزّن ملفات التطبيق فقط. بيانات التمارين في IndexedDB ولا يلمسها هذا الملف أبداً. */
-var V = 'titanlog-static-v3.0.1';
+var V = 'titanlog-static-v3.1.0';
 var FILES = ['index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png'];
 self.addEventListener('install', function (e) { e.waitUntil(caches.open(V).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); })); });
 self.addEventListener('activate', function (e) {

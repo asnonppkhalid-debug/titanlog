@@ -253,6 +253,24 @@ body.resting{padding-bottom:calc(180px + env(safe-area-inset-bottom))}
 .cf{position:absolute;top:-14px;width:9px;height:14px;border-radius:2px;opacity:.95;animation:cf 1.6s ease-in forwards;pointer-events:none}
 @keyframes cf{to{transform:translateY(520px) rotate(560deg);opacity:0}}
 
+/* ===== أدوات التمرين: أنواع المجموعات، ±، سوبر سِت، حاسبة الأقراص ===== */
+.set .no.t{background:var(--s1);border-radius:10px;font-size:.82rem;min-height:36px;align-self:center}
+.set.drp .no{color:#7A3FD0}
+.set.fail .no{color:var(--rd)}
+.set.drp{background:rgba(122,63,208,.10)}
+.set.fail{background:rgba(217,72,47,.09)}
+.set.done.drp,.set.done.fail{background:rgba(47,166,106,.16)}
+.set button.pv{background:none;border:0;font:inherit;font-size:.88rem;color:var(--t2);min-height:44px;cursor:pointer;direction:ltr;border-radius:8px;padding:0}
+.set button.pv:active{background:var(--s1)}
+.stp{grid-column:1/-1;display:flex;gap:10px;justify-content:space-between;align-items:center;padding:2px 2px 4px;flex-wrap:wrap}
+.stp .sg{display:flex;gap:6px;align-items:center}
+.stp .sg button{min-width:54px;min-height:40px;padding:0 8px;border:1.5px solid var(--ln);background:var(--s1);border-radius:12px;font-weight:700;font-size:.92rem;color:var(--tx);cursor:pointer;direction:ltr;unicode-bidi:isolate;font-family:inherit}
+.stp .sg button:active{transform:scale(.94)}
+.stp .lb{font-size:.74rem;color:var(--t2);font-weight:700}
+.xc.ss{border-inline-start:6px solid var(--gold)}
+.xc.next{box-shadow:0 0 0 3px var(--bl),var(--shadow)}
+.plv{width:100%;max-width:320px;height:auto;display:block;margin:0 auto}
+
 </style>
 </head>
 <body>
@@ -345,7 +363,7 @@ var Store = {
   }
 };
 var S = { ex: [], prog: [], ses: [], set: null, img: {} };
-var DEF = { id: 'settings', unit: 'kg', rest: 90, autoRest: true, coach: true, inc: 2.5, theme: 'light', vibrate: true, name: '' };
+var DEF = { id: 'settings', unit: 'kg', rest: 90, autoRest: true, coach: true, inc: 2.5, theme: 'light', vibrate: true, name: '', wake: true };
 function load() {
   return Promise.all([Store.all('exercises'), Store.all('programs'), Store.all('sessions'), Store.all('kv'), Store.all('images')]).then(function (r) {
     S.ex = r[0]; S.prog = r[1]; S.ses = r[2]; S.img = {};
@@ -468,7 +486,7 @@ var TGT = {};
 var DEFRANGE = { weight_reps: [8, 12], bodyweight_reps: [8, 15], reps_only: [10, 20] };
 var EQSTEP = { dumbbell: 1, kettlebell: 2 };
 var EFFL = { easy: 'سهلة (باقي ٣ تكرارات أو أكثر)', ok: 'مناسبة (باقي ١–٢)', hard: 'للفشل (ما باقي شي)' };
-function r25(x) { return Math.round(x * 4) / 4; }
+function r25(x) { return S.set && S.set.unit === 'lb' ? toKg(Math.round(kgTo(x) * 2) / 2) : Math.round(x * 4) / 4; }
 function stepFor(ex, w) {
   var base = S.set.inc > 0 ? S.set.inc : 2.5, own = ex && ex.inc > 0, st = own ? ex.inc : (ex && EQSTEP[ex.equip] ? Math.min(EQSTEP[ex.equip], base) : base);
   if (!own && w > 0) st = Math.min(st, Math.max(0.25, w * 0.1));
@@ -482,7 +500,7 @@ function progHist(ex, n) {
     s.exercises.forEach(function (e) {
       if (e.exId !== ex.id) return;
       if (e.effort) eff = e.effort; if (e.cfg && e.cfg.min) cfg = e.cfg;
-      e.sets.forEach(function (st) { if (st.status === 'completed' && st.type !== 'warmup' && valid(ex.tracking, st)) sets.push(st); });
+      e.sets.forEach(function (st) { if (st.status === 'completed' && isWork(st) && valid(ex.tracking, st)) sets.push(st); });
     });
     if (sets.length) out.push({ at: s.completedAt, date: ymd(s.completedAt), sets: sets, effort: eff, cfg: cfg });
   });
@@ -604,7 +622,7 @@ function progHelp() {
 function applyPlan(e, c, overwrite) {
   var n = 0, T = e.tracking;
   e.sets.forEach(function (st) {
-    if (st.status !== 'pending' || st.type === 'warmup') return;
+    if (st.status !== 'pending' || !isWork(st)) return;
     var did = false;
     if (T !== 'duration' && T !== 'reps_only' && c.w != null && (overwrite || st.w == null)) { st.w = c.w; did = true; }
     if (c.reps != null) { if (T === 'duration') { if (overwrite || st.dur == null) { st.dur = c.reps; did = true; } } else if (overwrite || st.reps == null) { st.reps = c.reps; did = true; } }
@@ -632,7 +650,7 @@ function route() {
   buildDock();
   var app = $('#app'); app.replaceChildren();
   try { app.appendChild(P(parts.slice(1))); } catch (e) { console.error(e); app.appendChild(h('div', { class: 'grp pad' }, 'حدث خطأ أثناء عرض الصفحة: ' + e.message)); }
-  window.scrollTo(0, 0);
+  window.scrollTo(0, 0); syncWake();
 }
 function go(p) { if (location.hash === '#/' + p) route(); else location.hash = '#/' + p; }
 function rerender() { var y = window.scrollY; route(); window.scrollTo(0, y); }
@@ -728,7 +746,7 @@ function perExercise() {
   done().sort(function (a, b) { return a.completedAt - b.completedAt; }).forEach(function (s) {
     s.exercises.forEach(function (e) {
       if (!e.exId) return;
-      var sets = e.sets.filter(function (x) { return x.status === 'completed' && x.type !== 'warmup' && valid(e.tracking, x); });
+      var sets = e.sets.filter(function (x) { return x.status === 'completed' && isWork(x) && valid(e.tracking, x); });
       if (!sets.length) return;
       var g = m[e.exId] = m[e.exId] || { name: e.name, tracking: e.tracking, ss: [] };
       g.ss.push({ id: s.id, at: s.completedAt, sets: sets });
@@ -952,9 +970,257 @@ function installCard() {
   if (web) return h('div', { class: 'grp pad', style: 'margin-bottom:12px' }, h('div', { class: 'b' }, '📲 تثبيت على الهاتف'), h('p', { class: 'mu sm', style: 'margin-top:6px' }, 'افتح قائمة المتصفح (⋮) واختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».'));
   return h('div', { class: 'grp pad', style: 'margin-bottom:12px' }, h('div', { class: 'b' }, '📲 ليش ماكو زر تثبيت؟'), h('p', { class: 'mu sm', style: 'margin-top:6px' }, 'لأنك فاتح الملف مباشرة من الجهاز. المتصفح ما يسمح بتثبيت ملف محلي كتطبيق، لازم يندار من رابط https. بياناتك تبقى على هاتفك بكل الحالات.'), h('p', { class: 'mu sm', style: 'margin-top:6px' }, 'الحل: نرفعه على استضافة مجانية (مثل Cloudflare Pages أو GitHub Pages). ما أرفع شي إلا إذا وافقت.'));
 }
+/* ===== أدوات التمرين (محلية بالكامل): بقاء الشاشة، حاسبة الأقراص، الإحماء، بديل التمرين، السوبر سِت، أنواع المجموعات ===== */
+var NEXTUP = null;
+function isBarEq(ex) { return !!ex && (ex.equip === 'barbell' || ex.equip === 'smith_machine'); }
+function isWork(st) { return st.type !== 'warmup' && st.type !== 'drop'; }
+
+/* --- إبقاء الشاشة شغّالة أثناء التمرين (Screen Wake Lock) --- */
+var WAKE = { lock: null, busy: false };
+function wakeSupported() { return !!(navigator.wakeLock && navigator.wakeLock.request); }
+function wakeNeeded() { var a = activeSes(); return !!(S.set && S.set.wake !== false && a && Date.now() - a.startedAt < 6 * 36e5 && document.visibilityState !== 'hidden'); }
+function wakeTagUpd() { var t = document.getElementById('wakeTag'); if (t) t.style.display = WAKE.lock ? '' : 'none'; }
+function wakeRelease(l) { try { var r = l.release(); if (r && r.catch) r.catch(function () {}); } catch (e) {} }
+function syncWake() {
+  if (!wakeSupported()) return;
+  try {
+    if (wakeNeeded()) {
+      if (WAKE.lock || WAKE.busy) return;
+      WAKE.busy = true;
+      navigator.wakeLock.request('screen').then(function (l) {
+        WAKE.busy = false;
+        if (!wakeNeeded()) { wakeRelease(l); return; }
+        WAKE.lock = l;
+        l.addEventListener('release', function () { if (WAKE.lock === l) WAKE.lock = null; wakeTagUpd(); });
+        wakeTagUpd();
+      }, function () { WAKE.busy = false; });
+    } else if (WAKE.lock) { var l = WAKE.lock; WAKE.lock = null; wakeRelease(l); wakeTagUpd(); }
+  } catch (e) { WAKE.busy = false; }
+}
+document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') syncWake(); });
+
+/* --- حاسبة الأقراص --- */
+var PL = { kg: [25, 20, 15, 10, 5, 2.5, 1.25, 0.5], lb: [100, 55, 45, 35, 25, 10, 5, 2.5, 1.25] };
+var PLDEF = { kg: [25, 20, 15, 10, 5, 2.5, 1.25], lb: [45, 35, 25, 10, 5, 2.5] };
+var PLCOL = ['#C23A2E', '#2457D6', '#E0A400', '#2FA66A', '#EDE8DA', '#3B3F4A', '#9AA3B2', '#B4690E', '#7A3FD0'];
+function plCfg() {
+  var u = S.set.unit === 'lb' ? 'lb' : 'kg', k = u === 'lb' ? 'platesLb' : 'plates', b = u === 'lb' ? 'barLb' : 'bar';
+  var pl = (Array.isArray(S.set[k]) ? S.set[k] : []).filter(function (x) { return x > 0; }); if (!pl.length) pl = PLDEF[u].slice();
+  var bar = S.set[b] != null && S.set[b] >= 0 ? S.set[b] : (u === 'lb' ? 45 : 20);
+  return { u: u, k: k, b: b, bar: bar, plates: pl.sort(function (a, c) { return c - a; }), all: PL[u] };
+}
+/* الأرقام بوحدة العرض. يرجّع أقراص كل جهة، أو أقرب وزنين ممكنين إذا ما ينفع بالضبط */
+function plateSolve(total, bar, plates) {
+  var Q = 4, per = (total - bar) / 2;
+  if (!(total > 0) || per < -1e-9) return { err: 'low' };
+  var tgt = Math.max(0, Math.round(per * Q)), exact = Math.abs(per * Q - tgt) < 1e-6;
+  var ps = plates.map(function (p) { return Math.round(p * Q); }).filter(function (p) { return p > 0; }).sort(function (a, c) { return c - a; });
+  if (!ps.length) return { err: 'none' };
+  var lim = tgt + Math.max(ps[0], 4 * Q) + 8, INF = 1e9, cnt = [], pick = [], x, i;
+  for (x = 0; x <= lim; x++) cnt.push(INF); cnt[0] = 0;
+  for (x = 1; x <= lim; x++) for (i = 0; i < ps.length; i++) { var p = ps[i]; if (p <= x && cnt[x - p] + 1 < cnt[x]) { cnt[x] = cnt[x - p] + 1; pick[x] = p; } }
+  function take(v) { var m = {}; while (v > 0) { m[pick[v]] = (m[pick[v]] || 0) + 1; v -= pick[v]; } return Object.keys(m).map(Number).sort(function (a, c) { return c - a; }).map(function (k) { return { p: k / Q, n: m[k] }; }); }
+  function tot(v) { return +(bar + 2 * v / Q).toFixed(3); }
+  if (exact && cnt[tgt] < INF) { var sd = take(tgt); return { ok: true, side: sd, count: sd.reduce(function (a, c) { return a + c.n; }, 0), total: tot(tgt) }; }
+  var lo = null, hi = null;
+  for (x = Math.min(tgt, lim); x >= 0; x--) if (cnt[x] < INF) { lo = { total: tot(x), side: take(x) }; break; }
+  for (x = tgt; x <= lim; x++) if (cnt[x] < INF) { hi = { total: tot(x), side: take(x) }; break; }
+  return { ok: false, lo: lo, hi: hi };
+}
+function plateViz(side, cf) {
+  var pmax = cf.all[0], W = 300, H = 100, mid = H / 2, x = 52, rects = '';
+  side.forEach(function (g) {
+    for (var i = 0; i < g.n && x < W - 30; i++) {
+      var ph = Math.round(28 + 66 * Math.sqrt(g.p / pmax)), pw = Math.round(9 + 8 * Math.sqrt(g.p / pmax)), ci = cf.all.indexOf(g.p);
+      rects += '<rect x="' + x + '" y="' + (mid - ph / 2) + '" width="' + pw + '" height="' + ph + '" rx="3" fill="' + PLCOL[(ci < 0 ? 6 : ci) % PLCOL.length] + '" stroke="rgba(0,0,0,.35)" stroke-width="1"/>';
+      x += pw + 2;
+    }
+  });
+  var s = document.createElementNS(SVGNS, 'svg'); s.setAttribute('viewBox', '0 0 ' + W + ' ' + H); s.setAttribute('class', 'plv'); s.setAttribute('role', 'img'); s.setAttribute('aria-label', 'رسم الأقراص على جهة البار');
+  s.innerHTML = '<rect x="0" y="' + (mid - 4) + '" width="' + W + '" height="8" rx="4" fill="#9AA3B2"/><rect x="38" y="' + (mid - 13) + '" width="10" height="26" rx="3" fill="#6C7384"/>' + rects + '<rect x="' + Math.min(x + 2, W - 12) + '" y="' + (mid - 9) + '" width="6" height="18" rx="2" fill="#6C7384"/>';
+  return s;
+}
+function sideText(side) { return side.length ? side.map(function (g) { return g.n + '×' + fmtN(g.p, 2); }).join(' + ') : 'بدون أقراص'; }
+function plateCalc(w0, onUse) {
+  var cf = plCfg(), res = h('div', { style: 'margin-top:12px' }), chips = h('div', { class: 'row wrap', style: 'gap:8px' }), cur = null;
+  var tot = h('input', { type: 'text', inputmode: 'decimal', dir: 'ltr', value: w0 != null && w0 > 0 ? fmtN(kgTo(w0), 2) : '', placeholder: 'مثلاً ' + (cf.u === 'lb' ? '135' : '100'), 'aria-label': 'الوزن الكلي', oninput: draw });
+  var bar = h('input', { type: 'text', inputmode: 'decimal', dir: 'ltr', value: fmtN(cf.bar, 2), 'aria-label': 'وزن البار', onchange: function (e) { var n = num(e.target.value); if (n != null && n >= 0 && n <= 60) { S.set[cf.b] = n; saveSet(); cf = plCfg(); } e.target.value = fmtN(cf.bar, 2); draw(); } });
+  function stepBy() { var mn = cf.plates[cf.plates.length - 1] || 1.25; return 2 * mn; }
+  function nudge(d) { var t = num(tot.value); t = t == null ? cf.bar : t; var v = Math.max(cf.bar, +(t + d * stepBy()).toFixed(3)); tot.value = fmtN(v, 2); draw(); }
+  function chipsDraw() {
+    chips.replaceChildren.apply(chips, cf.all.map(function (p) {
+      var on = cf.plates.indexOf(p) >= 0;
+      return h('button', { type: 'button', class: 'btn s' + (on ? ' pri' : ''), 'aria-pressed': on ? 'true' : 'false', onclick: function () {
+        var sel = cf.plates.slice(); var i = sel.indexOf(p); if (i >= 0) { if (sel.length === 1) return toast('لازم يبقى قرص واحد على الأقل', 'er'); sel.splice(i, 1); } else sel.push(p);
+        S.set[cf.k] = sel; saveSet(); cf = plCfg(); chipsDraw(); draw();
+      } }, fmtN(p, 2));
+    }));
+  }
+  function setTot(v) { tot.value = fmtN(v, 2); draw(); }
+  function draw() {
+    var t = num(tot.value); cur = null;
+    if (t == null || t <= 0) return res.replaceChildren(h('div', { class: 'mu sm' }, 'اكتب الوزن الكلي اللي تريد ترفعه (البار + الأقراص).'));
+    var r = plateSolve(t, cf.bar, cf.plates);
+    if (r.err === 'low') return res.replaceChildren(h('div', { class: 'warn' }, 'الوزن أقل من وزن البار (' + fmtN(cf.bar, 2) + ' ' + (cf.u === 'lb' ? 'باوند' : 'كغم') + ').'));
+    if (r.err) return res.replaceChildren(h('div', { class: 'warn' }, 'اختر قرص واحد على الأقل.'));
+    if (r.ok) {
+      cur = r.total;
+      return res.replaceChildren(h('div', { class: 'grp pad c' }, h('div', { class: 'mu xs' }, 'على كل جهة من البار'), h('div', { class: 'b ltr', style: 'font-size:1.35rem;margin:4px 0 8px' }, sideText(r.side)), plateViz(r.side, cf),
+        h('div', { class: 'mu sm ltr', style: 'margin-top:6px' }, fmtN(cf.bar, 2) + ' + 2 × ' + fmtN((r.total - cf.bar) / 2, 2) + ' = ' + fmtN(r.total, 2)),
+        r.count > 8 ? h('div', { class: 'warn', style: 'margin-top:8px' }, 'هذا ' + r.count + ' أقراص بكل جهة. تأكد يتسعون على البار.') : null));
+    }
+    var opts = [r.lo, r.hi].filter(Boolean).filter(function (o, i, a) { return !(i === 1 && a[0] && Math.abs(a[0].total - o.total) < 1e-6); });
+    res.replaceChildren(h('div', { class: 'warn' }, 'ما أكدر أركّب ' + fmtN(t, 2) + ' بالضبط بالأقراص المحدّدة. أقرب وزن ممكن:'),
+      h('div', { class: 'row wrap', style: 'margin-top:8px' }, opts.map(function (o) { return h('button', { class: 'btn g', onclick: function () { setTot(o.total); } }, fmtN(o.total, 2) + ' ' + (cf.u === 'lb' ? 'باوند' : 'كغم') + ' (' + sideText(o.side) + ')'); })));
+  }
+  chipsDraw(); draw();
+  var body = h('div', {}, h('div', { class: 'row', style: 'gap:8px' }, h('button', { class: 'btn', style: 'min-width:52px', onclick: function () { nudge(-1); }, 'aria-label': 'أنقص' }, '−'), h('div', { class: 'g' }, field('الوزن الكلي (' + UL() + ')', tot)), h('button', { class: 'btn', style: 'min-width:52px', onclick: function () { nudge(1); }, 'aria-label': 'زِد' }, '+')),
+    res,
+    h('details', { style: 'margin-top:12px' }, h('summary', { class: 'b', style: 'cursor:pointer;color:var(--bl)' }, 'وزن البار والأقراص اللي عندك بالنادي'), h('div', { style: 'margin-top:8px' }, field('وزن البار (' + UL() + ')', bar), h('div', { class: 'mu xs', style: 'margin:6px 0' }, 'الأقراص المتوفرة (اضغط لتفعيل/إلغاء):'), chips, h('div', { class: 'mu xs', style: 'margin-top:8px' }, 'تنحفظ على جهازك. أقرب وزن ممكن يُحسب بحيث يكون عدد الأقراص أقل ما يمكن.'))));
+  sheet('حاسبة الأقراص 🧮', body, function (c) { return onUse ? [h('button', { class: 'btn', onclick: c }, 'إغلاق'), h('button', { class: 'btn pri', onclick: function () { var t = cur != null ? cur : num(tot.value); if (!(t > 0)) return toast('اكتب الوزن أولاً', 'er'); c(); onUse(+toKg(t).toFixed(4)); } }, 'حطّه بالمجموعة')] : [h('button', { class: 'btn pri', onclick: c }, 'تمام')]; });
+}
+
+/* --- الإحماء --- */
+function warmupPlan(Wd, ex) {
+  /* Wd بوحدة العرض؛ يرجّع [{w (وحدة العرض), reps}] */
+  var cf = plCfg(), bar = isBarEq(ex) ? cf.bar : 0, lb = S.set.unit === 'lb';
+  var inc = bar ? 2 * (cf.plates[cf.plates.length - 1] || (lb ? 2.5 : 1.25)) : (lb ? 5 : Math.max(1, kgTo(stepFor(ex, toKg(Wd)))));
+  var sch = Wd < (lb ? 33 : 15) ? [[0.5, 10]] : [[0.4, 8], [0.6, 5], [0.8, 3]], out = [];
+  sch.forEach(function (r) {
+    var w = Math.round(Wd * r[0] / inc) * inc; if (bar && w < bar) w = bar;
+    if (w >= Wd - 1e-6 || w <= 0) return; if (out.length && w <= out[out.length - 1].w + 1e-6) return;
+    out.push({ w: +w.toFixed(2), reps: r[1] });
+  });
+  return out;
+}
+function warmupBase(e) {
+  var f = e.sets.filter(function (t) { return isWork(t) && t.w > 0; })[0]; if (f) return f.w;
+  var tg = TGT[e.id]; if (tg && tg.w > 0) return tg.w;
+  var ex = exById(e.exId), hh = ex ? progHist(ex, 1) : []; if (hh.length && e.tracking === 'weight_reps') return sesMetric(e.tracking, hh[0].sets).w;
+  return null;
+}
+function warmupSheet(s, e, edit, redraw) {
+  var ex = exById(e.exId), b0 = warmupBase(e), inp = h('input', { type: 'text', inputmode: 'decimal', dir: 'ltr', value: b0 ? fmtN(kgTo(b0), 2) : '', placeholder: 'وزن أول مجموعة عمل', 'aria-label': 'وزن مجموعة العمل', oninput: draw }), box = h('div', { class: 'grp pad', style: 'margin-top:10px' }), plan = [];
+  function draw() {
+    var v = num(inp.value); plan = v > 0 ? warmupPlan(v, ex) : [];
+    box.replaceChildren(!(v > 0) ? h('div', { class: 'mu sm' }, 'اكتب وزن أول مجموعة عمل لأحسب لك الإحماء.') : !plan.length ? h('div', { class: 'mu sm' }, 'هذا الوزن خفيف، ما يحتاج إحماء إضافي. تكدر تسوي مجموعة خفيفة بنفس الحركة.') :
+      h('div', { style: 'display:grid;gap:6px' }, plan.map(function (r, i) { return h('div', { class: 'row sb' }, h('span', { class: 'b' }, 'إحماء ' + (i + 1)), h('span', { class: 'b ltr' }, fmtN(r.w, 2) + ' ' + UL() + ' × ' + r.reps)); })));
+  }
+  draw();
+  sheet('إحماء ' + (ex ? ex.name : e.name), h('div', {}, h('p', { class: 'mu sm' }, 'مجموعات خفيفة تدرّجية قبل مجموعات العمل (٤٠٪ ← ٦٠٪ ← ٨٠٪ من وزن العمل). نسب شائعة بين المدربين، مو قانون ثابت. عدّلها على كيفك.'), field('وزن أول مجموعة عمل (' + UL() + ')', inp), box),
+    function (c) { return [h('button', { class: 'btn', onclick: c }, 'إلغاء'), h('button', { class: 'btn pri', onclick: function () {
+      if (!plan.length) return toast('ماكو إحماء يتضاف', 'er');
+      var add = plan.map(function (r) { var n = mkSet(); n.type = 'warmup'; n.w = +toKg(r.w).toFixed(4); n.reps = r.reps; return n; });
+      e.sets = add.concat(e.sets); c(); edit().then(redraw);
+    } }, 'أضف الإحماء')]; });
+}
+
+/* --- نوع المجموعة --- */
+var STYPES = [['working', 'مجموعة عمل', 'المجموعة الأساسية اللي تحسب بتقدّمك وأرقامك.'], ['warmup', 'إحماء', 'خفيفة قبل الأساسية. ما تدخل بالأرقام القياسية ولا باقتراحات الزيادة.'], ['drop', 'دروب سِت', 'تنزّل الوزن وتكمل مباشرة بدون راحة. تنحسب بالحجم، وما تدخل باقتراحات الزيادة.'], ['failure', 'للفشل', 'مجموعة وصلت فيها لآخر تكرار تقدر تسويه. تنحسب كمجموعة عمل عادية.']];
+var STBADGE = { warmup: 'إح', drop: 'د', failure: 'ف' };
+function typeSheet(st, redraw, edit) {
+  var close = sheet('نوع المجموعة', h('div', { style: 'display:grid;gap:8px' }, STYPES.map(function (t) {
+    var on = (st.type || 'working') === t[0];
+    return h('button', { class: 'btn' + (on ? ' pri' : ''), style: 'flex-direction:column;align-items:flex-start;gap:2px;padding:10px 16px;text-align:start', onclick: function () { close(); st.type = t[0]; edit().then(redraw); } }, h('span', {}, (on ? '✔ ' : '') + t[1]), h('span', { style: 'font-weight:400;font-size:.8rem;opacity:.85' }, t[2]));
+  })));
+}
+
+/* --- السوبر سِت --- */
+function ssGroup(s, e) { return e.ss ? s.exercises.filter(function (x) { return x.ss === e.ss; }) : []; }
+function wcount(x) { return x.sets.filter(function (t) { return t.status === 'completed' && t.type !== 'warmup'; }).length; }
+function ssNext(s, e) {
+  var g = ssGroup(s, e); if (g.length < 2) return null;
+  var k = wcount(e), i = g.indexOf(e);
+  for (var j = 1; j < g.length; j++) { var y = g[(i + j) % g.length]; if (wcount(y) < k && y.sets.some(function (t) { return t.status === 'pending' && t.type !== 'warmup'; })) return y; }
+  return null;
+}
+function ssLink(s, i, dir) {
+  var a = s.exercises[i], b = s.exercises[i + dir]; if (!a || !b) return;
+  var gid = b.ss || a.ss || uid(); a.ss = gid; b.ss = gid;
+}
+function ssUnlink(s, e) {
+  var g = e.ss; delete e.ss;
+  var rest = s.exercises.filter(function (x) { return x.ss === g; }); if (rest.length < 2) rest.forEach(function (x) { delete x.ss; });
+}
+function restFor(e, st) {
+  var base = e.cfg && e.cfg.rest != null ? e.cfg.rest : S.set.rest;
+  return st.type === 'warmup' ? Math.min(base, 45) : base;
+}
+
+/* --- الجهاز مشغول؟ بدّل التمرين --- */
+function lastPerf(ex) {
+  var hh = progHist(ex, 1); if (!hh.length) return null;
+  var T = ex.tracking, m = sesMetric(T, hh[0].sets);
+  return T === 'weight_reps' ? fmtW(m.w) + ' × ' + m.reps.join('/') : T === 'duration' ? m.reps.join('/') + ' ثانية' : m.reps.join('/') + ' تكرار';
+}
+function lastDone(ex) { var l = 0; done().forEach(function (s) { s.exercises.forEach(function (e) { if (e.exId === ex.id && s.completedAt > l && e.sets.some(function (t) { return t.status === 'completed'; })) l = s.completedAt; }); }); return l; }
+function swapSheet(s, e, edit, redraw) {
+  var old = exById(e.exId), muscle = old ? old.muscle : e.muscle, close;
+  var pend = e.sets.filter(function (t) { return t.status === 'pending'; });
+  if (!pend.length) return toast('ما باقي مجموعات تبدّلها بهالتمرين', 'er');
+  var cands = S.ex.filter(function (x) { return !x.archived && x.id !== e.exId && x.muscle === muscle; });
+  var ld = {}; cands.forEach(function (x) { ld[x.id] = lastDone(x); });
+  cands.sort(function (a, b) { return (ld[b.id] ? 1 : 0) - (ld[a.id] ? 1 : 0) || ld[b.id] - ld[a.id] || a.name.localeCompare(b.name, 'ar'); });
+  var useProg = h('input', { type: 'checkbox' }), canProg = !!(s.progId && S.prog.some(function (p) { return p.id === s.progId && p.days.some(function (d) { return d.id === s.dayId && d.exercises.some(function (x) { return x.exId === e.exId; }); }); }));
+  function doSwap(nx) {
+    var keep = e.sets.filter(function (t) { return t.status !== 'pending'; }), ne = mkEx(nx, e.cfg && e.cfg.min && nx.tracking === e.tracking ? e.cfg : null);
+    ne.sets = pend.map(function (t) { var n = mkSet(); n.type = t.type || 'working'; return n; });
+    if (e.ss) ne.ss = e.ss; ne.swapFrom = e.exId;
+    var i = s.exercises.indexOf(e);
+    if (keep.length) { e.sets = keep; s.exercises.splice(i + 1, 0, ne); } else s.exercises.splice(i, 1, ne);
+    var q = edit();
+    if (useProg.checked && canProg) { var p = S.prog.filter(function (x) { return x.id === s.progId; })[0], d = p && p.days.filter(function (x) { return x.id === s.dayId; })[0], it = d && d.exercises.filter(function (x) { return x.exId === e.exId; })[0]; if (it) { it.exId = nx.id; q = q.then(function () { return persist('programs', p); }); } }
+    q.then(function () { toast('بدّلناه: ' + nx.name, 'ok'); redraw(); });
+  }
+  var list = cands.length ? h('div', { class: 'grp', style: 'max-height:44vh;overflow:auto' }, cands.map(function (x) {
+    var lp = lastPerf(x);
+    return h('div', { class: 'it', onclick: function () { close(); doSwap(x); } }, h('div', { class: 'g' }, h('div', { class: 'b' }, x.name), h('div', { class: 'mu xs' }, EQ[x.equip] + ' · ' + (lp ? 'آخر مرة: ' + lp : 'ما سويته من قبل'))), ic('fwd', 'ch'));
+  })) : h('div', { class: 'mu sm' }, 'ماكو تمرين ثاني لنفس العضلة بالمكتبة. اختار من كل التمارين أو سوّي تمرين جديد.');
+  close = sheet('الجهاز مشغول؟ 🔁', h('div', {}, h('p', { class: 'mu sm', style: 'margin-bottom:10px' }, 'بدائل لنفس العضلة (' + (MUS[muscle] || '') + ')، والمجرَّب منها أولاً. المجموعات اللي خلصتها تبقى مكانها، والباقية (' + pend.length + ') تنتقل للتمرين البديل.'), list,
+    h('button', { class: 'btn s gh', style: 'margin-top:8px', onclick: function () { close(); pickExercises(function (l) { if (l[0]) doSwap(l[0]); }); } }, 'اختار من كل التمارين…'),
+    canProg ? h('label', { class: 'row', style: 'padding:10px 0;min-height:48px' }, useProg, h('span', { class: 'g sm' }, 'بدّله ببرنامجي دائماً (مو بس اليوم)')) : null));
+}
+
+/* --- قائمة التمرين (⋮) --- */
+function exMenu(s, e, i, redraw, edit, live) {
+  var ex = exById(e.exId), acts = [];
+  if (ex) acts.push(['التفاصيل والملاحظات والصورة', function () { exerciseDetail(ex); }, true]);
+  if (live) acts.push(['الجهاز مشغول؟ بدّل التمرين', function () { swapSheet(s, e, edit, redraw); }, true]);
+  if (live) {
+    if (e.ss) acts.push(['فك السوبر سِت', function () { ssUnlink(s, e); }]);
+    if (s.exercises[i + 1] && !(e.ss && s.exercises[i + 1].ss === e.ss)) acts.push(['سوبر سِت مع التمرين التالي', function () { ssLink(s, i, 1); }]);
+    else if (s.exercises[i - 1] && !e.ss) acts.push(['سوبر سِت مع التمرين السابق', function () { ssLink(s, i, -1); }]);
+  }
+  acts.push(['تحريك للأعلى', function () { if (i > 0) { var t = s.exercises[i - 1]; s.exercises[i - 1] = s.exercises[i]; s.exercises[i] = t; } }]);
+  acts.push(['تحريك للأسفل', function () { if (i < s.exercises.length - 1) { var t = s.exercises[i + 1]; s.exercises[i + 1] = s.exercises[i]; s.exercises[i] = t; } }]);
+  acts.push(['إزالة من التمرين', function () { var g = e.ss; s.exercises.splice(i, 1); if (g) { var r = s.exercises.filter(function (x) { return x.ss === g; }); if (r.length < 2) r.forEach(function (x) { delete x.ss; }); } }]);
+  var close = sheet(e.name, h('div', { style: 'display:grid;gap:8px' }, acts.map(function (a) { return h('button', { class: 'btn' + (a[0].indexOf('إزالة') === 0 ? ' dg' : ''), onclick: function () { close(); a[1](); if (!a[2]) edit().then(redraw); } }, a[0]); })));
+}
+
+/* --- بدء يوم من البرنامج (مع السوبر سِت) --- */
+function startFromDay(pid, did) {
+  if (activeSes()) return go('workout');
+  var p = S.prog.filter(function (x) { return x.id === pid; })[0], d = p && p.days.filter(function (x) { return x.id === did; })[0]; if (!d) return;
+  var s = newSession(d.name, p, d), prevLink = null;
+  d.exercises.forEach(function (it) {
+    var ex = exById(it.exId); if (!ex || ex.archived) return;
+    var me = mkEx(ex, it); s.exercises.push(me);
+    if (prevLink) { me.ss = prevLink.ss; prevLink = null; }
+    if (it.link) { var gid = me.ss || uid(); me.ss = gid; prevLink = { ss: gid }; }
+  });
+  var cnt = {}; s.exercises.forEach(function (x) { if (x.ss) cnt[x.ss] = (cnt[x.ss] || 0) + 1; }); s.exercises.forEach(function (x) { if (x.ss && cnt[x.ss] < 2) delete x.ss; });
+  S.ses.push(s); persist('sessions', s).then(function () { go('workout'); route(); });
+}
+
+/* --- زرّ ± للمجموعة الحالية --- */
+function stepDisp(ex) {
+  /* خطوة ثابتة للأزرار (بدون سقف الـ ١٠٪ الخاص باقتراحات التدرّج، حتى تبقى متوقعة) */
+  var st = kgTo(stepFor(ex, 0)); return S.set.unit === 'lb' ? Math.max(0.5, Math.round(st * 2) / 2) : Math.max(0.25, Math.round(st * 4) / 4);
+}
+function toolLink(t, sub, fn) { return h('div', { class: 'it', onclick: fn }, h('div', { class: 'g' }, h('div', { class: 'b' }, t), h('div', { class: 'mu sm' }, sub)), ic('fwd', 'ch')); }
 PAGES.more = function () {
   var link = function (to, t, sub) { return h('div', { class: 'it', onclick: function () { go(to); } }, h('div', { class: 'g' }, h('div', { class: 'b' }, t), h('div', { class: 'mu sm' }, sub)), ic('fwd', 'ch')); };
-  return h('div', { class: 'page' }, title('المزيد'), installCard(), h('div', { class: 'grp' }, link('library', 'مكتبة التمارين', S.ex.filter(function (e) { return !e.archived; }).length + ' تمرين'), link('stickers', 'ملصقاتي ورتبتك', earnedIds().length + ' ملصق مفتوح'), link('history', 'سجل التمارين', done().length + ' تمرين منتهٍ'), link('settings', 'الإعدادات', 'الوحدات، المؤقت، النسخ الاحتياطي')));
+  return h('div', { class: 'page' }, title('المزيد'), installCard(), h('div', { class: 'grp' }, link('library', 'مكتبة التمارين', S.ex.filter(function (e) { return !e.archived; }).length + ' تمرين'), toolLink('🧮 حاسبة الأقراص', 'شنو تحط على كل جهة من البار', function () { plateCalc(null); }), link('stickers', 'ملصقاتي ورتبتك', earnedIds().length + ' ملصق مفتوح'), link('history', 'سجل التمارين', done().length + ' تمرين منتهٍ'), link('settings', 'الإعدادات', 'الوحدات، المؤقت، النسخ الاحتياطي')));
 };
 
 PAGES.library = function () {
@@ -1051,11 +1317,90 @@ function pickExercises(onPick) {
   draw();
 }
 
+/* ===== قوالب برامج جاهزة (نقاط بداية تعدّلها بعد الإنشاء) ===== */
+/* كل يوم: [اسم، [[اسم التمرين بالإنكليزي، مجموعات، أقل تكرار، أكثر تكرار، (1 = سوبر سِت مع اللي بعده)]]] ، و null = يوم راحة */
+var TPLS = [
+  { id: 'fb', name: 'جسم كامل A/B', sub: 'يوم تمرين، يوم راحة. مناسب للمبتدئ أو إذا وقتك محدود.', days: [
+    ['جسم كامل A', [['Back Squat', 3, 6, 10], ['Barbell Bench Press', 3, 6, 10], ['Seated Cable Row', 3, 8, 12], ['Lateral Raise', 2, 12, 20], ['Plank', 3, 30, 60]]],
+    null,
+    ['جسم كامل B', [['Romanian Deadlift', 3, 6, 10], ['Incline Dumbbell Press', 3, 8, 12], ['Lat Pulldown', 3, 8, 12], ['Leg Press', 3, 10, 15], ['Triceps Pushdown', 2, 10, 15], ['Hanging Leg Raise', 3, 8, 15]]],
+    null] },
+  { id: 'ppl', name: 'دفع / سحب / أرجل', sub: 'ثلاث أيام تمرين وراحة (دورة ٤ أيام). كل عضلة تنضرب تقريباً مرتين بالأسبوع.', days: [
+    ['دفع', [['Barbell Bench Press', 3, 6, 10], ['Overhead Press', 3, 6, 10], ['Incline Dumbbell Press', 3, 8, 12], ['Lateral Raise', 3, 12, 20], ['Triceps Pushdown', 3, 10, 15]]],
+    ['سحب', [['Barbell Row', 3, 6, 10], ['Lat Pulldown', 3, 8, 12], ['Seated Cable Row', 3, 8, 12], ['Face Pull', 3, 12, 20], ['Barbell Curl', 3, 8, 12], ['Hammer Curl', 2, 10, 15]]],
+    ['أرجل', [['Back Squat', 3, 6, 10], ['Romanian Deadlift', 3, 8, 12], ['Leg Press', 3, 10, 15], ['Leg Curl', 3, 10, 15], ['Standing Calf Raise', 4, 10, 15]]],
+    null] },
+  { id: 'ul', name: 'علوي / سفلي', sub: 'أربع أيام تمرين بالدورة (٧ أيام فيها ٣ راحة). كل عضلة مرتين بالأسبوع.', days: [
+    ['علوي A', [['Barbell Bench Press', 3, 6, 10], ['Barbell Row', 3, 6, 10], ['Overhead Press', 3, 8, 12], ['Lat Pulldown', 3, 8, 12], ['Barbell Curl', 2, 8, 12, 1], ['Triceps Pushdown', 2, 8, 12]]],
+    ['سفلي A', [['Back Squat', 3, 6, 10], ['Romanian Deadlift', 3, 8, 12], ['Leg Press', 3, 10, 15], ['Leg Curl', 3, 10, 15], ['Standing Calf Raise', 3, 10, 15]]],
+    null,
+    ['علوي B', [['Incline Dumbbell Press', 3, 8, 12], ['Pull-Up', 3, 6, 10], ['Dumbbell Shoulder Press', 3, 8, 12], ['Seated Cable Row', 3, 8, 12], ['Hammer Curl', 2, 10, 15, 1], ['Overhead Triceps Extension', 2, 10, 15]]],
+    ['سفلي B', [['Hip Thrust', 3, 8, 12], ['Bulgarian Split Squat', 3, 8, 12], ['Leg Extension', 3, 10, 15], ['Leg Curl', 3, 10, 15], ['Seated Calf Raise', 3, 10, 15], ['Crunch', 3, 10, 20]]],
+    null, null] },
+  { id: 'ppl6', name: 'دفع / سحب / أرجل ×٢ (٦ أيام)', sub: 'ست أيام تمرين ويوم راحة. حجم أكبر، لمن يقدر يلتزم ويرتاح زين.', days: [
+    ['دفع A', [['Barbell Bench Press', 3, 6, 10], ['Overhead Press', 3, 6, 10], ['Incline Dumbbell Press', 3, 8, 12], ['Lateral Raise', 3, 12, 20], ['Triceps Pushdown', 3, 10, 15]]],
+    ['سحب A', [['Barbell Row', 3, 6, 10], ['Lat Pulldown', 3, 8, 12], ['Seated Cable Row', 3, 8, 12], ['Face Pull', 3, 12, 20], ['Barbell Curl', 3, 8, 12]]],
+    ['أرجل A', [['Back Squat', 3, 6, 10], ['Romanian Deadlift', 3, 8, 12], ['Leg Press', 3, 10, 15], ['Leg Curl', 3, 10, 15], ['Standing Calf Raise', 4, 10, 15]]],
+    ['دفع B', [['Incline Dumbbell Press', 3, 8, 12], ['Dumbbell Shoulder Press', 3, 8, 12], ['Cable Chest Fly', 3, 10, 15], ['Lateral Raise', 3, 12, 20], ['Overhead Triceps Extension', 3, 10, 15]]],
+    ['سحب B', [['Pull-Up', 3, 6, 10], ['One-Arm Dumbbell Row', 3, 8, 12], ['Rear Delt Fly', 3, 12, 20], ['Dumbbell Curl', 3, 8, 12], ['Hammer Curl', 2, 10, 15]]],
+    ['أرجل B', [['Hip Thrust', 3, 8, 12], ['Bulgarian Split Squat', 3, 8, 12], ['Leg Extension', 3, 10, 15], ['Leg Curl', 3, 10, 15], ['Seated Calf Raise', 4, 10, 15]]],
+    null] },
+  { id: 'split5', name: 'تقسيم العضلات (٥ أيام)', sub: 'صدر، ظهر، أكتاف، أذرع، أرجل ويومين راحة. كل عضلة تقريباً مرة بالأسبوع.', days: [
+    ['صدر', [['Barbell Bench Press', 4, 6, 10], ['Incline Dumbbell Press', 3, 8, 12], ['Cable Chest Fly', 3, 10, 15], ['Push-Up', 2, 8, 15]]],
+    ['ظهر', [['Pull-Up', 3, 6, 10], ['Barbell Row', 3, 6, 10], ['Lat Pulldown', 3, 8, 12], ['Seated Cable Row', 3, 8, 12], ['Barbell Shrug', 3, 10, 15]]],
+    ['أكتاف', [['Overhead Press', 3, 6, 10], ['Lateral Raise', 4, 12, 20], ['Rear Delt Fly', 3, 12, 20], ['Face Pull', 3, 12, 20]]],
+    ['أذرع', [['Barbell Curl', 3, 8, 12, 1], ['Triceps Pushdown', 3, 8, 12], ['Hammer Curl', 3, 10, 15, 1], ['Overhead Triceps Extension', 3, 10, 15], ['Crunch', 3, 10, 20]]],
+    ['أرجل', [['Back Squat', 4, 6, 10], ['Romanian Deadlift', 3, 8, 12], ['Leg Press', 3, 10, 15], ['Leg Curl', 3, 10, 15], ['Standing Calf Raise', 4, 10, 15]]],
+    null, null] },
+  { id: 'home', name: 'دمبل وبيت', sub: 'دمبل ووزن الجسم بس. يوم تمرين ويوم راحة.', days: [
+    ['علوي (بيت)', [['Dumbbell Bench Press', 3, 8, 12], ['One-Arm Dumbbell Row', 3, 8, 12], ['Dumbbell Shoulder Press', 3, 8, 12], ['Dumbbell Curl', 2, 10, 15, 1], ['Overhead Triceps Extension', 2, 10, 15], ['Push-Up', 2, 8, 15]]],
+    null,
+    ['سفلي وبطن (بيت)', [['Bulgarian Split Squat', 3, 8, 12], ['Walking Lunge', 3, 10, 15], ['Lateral Raise', 3, 12, 20], ['Plank', 3, 30, 60], ['Crunch', 3, 10, 20]]],
+    null] }
+];
+function tplFind(alt) {
+  var k = alt.toLowerCase(), f = S.ex.filter(function (e) { return (e.alt && e.alt.toLowerCase() === k) || e.name.toLowerCase() === k; });
+  return f.filter(function (e) { return !e.archived; })[0] || f[0] || null;
+}
+/* ينشئ البرنامج كنسخة مستقلة، ويضيف للمكتبة فقط التمارين الناقصة (ما يلمس شي موجود) */
+function tplCreate(t) {
+  var q = Promise.resolve();
+  function ensure(alt) {
+    var ex = tplFind(alt); if (ex) return ex;
+    var r = STARTER.filter(function (x) { return x[1] === alt; })[0]; if (!r) return null;
+    ex = { id: uid(), name: r[0], alt: r[1], muscle: r[2], equip: r[3], tracking: r[4], video: '', notes: '', instr: '', archived: false, created: Date.now() };
+    S.ex.push(ex); q = q.then(function () { return persist('exercises', ex); }); return ex;
+  }
+  var days = t.days.map(function (d) {
+    if (!d) return { id: uid(), name: 'راحة', rest: true, weekdays: [], exercises: [] };
+    return { id: uid(), name: d[0], weekdays: [], exercises: d[1].map(function (x) { var ex = ensure(x[0]); return ex ? { id: uid(), exId: ex.id, sets: x[1], min: x[2], max: x[3], rest: null, notes: '', prog: 'auto', link: x[4] === 1 } : null; }).filter(Boolean) };
+  });
+  var p = { id: uid(), name: t.name, desc: t.sub, mode: 'cycle', active: !S.prog.some(function (x) { return x.active && !x.archived; }), archived: false, created: Date.now(), tpl: t.id, days: days };
+  S.prog.push(p);
+  return q.then(function () { return persist('programs', p); }).then(function () { return p; });
+}
+function tplSheet() {
+  var box = h('div'), close;
+  function list() {
+    box.replaceChildren(h('p', { class: 'mu sm', style: 'margin-bottom:10px' }, 'نقاط بداية جاهزة، تعدّل عليها بعد ما تنشئها. التمارين الناقصة تنضاف لمكتبتك، واللي عندك موجودة ما تتغير.'),
+      h('div', { class: 'grp' }, TPLS.map(function (t) { return h('div', { class: 'it', onclick: function () { view(t); } }, h('div', { class: 'g' }, h('div', { class: 'b' }, t.name), h('div', { class: 'mu sm' }, t.sub)), ic('fwd', 'ch')); })));
+  }
+  function view(t) {
+    var n = t.days.filter(Boolean).length;
+    box.replaceChildren(h('button', { class: 'btn s gh', onclick: list }, '→ كل القوالب'), h('p', { class: 'mu sm', style: 'margin:6px 0' }, t.sub + ' (' + n + ' أيام تمرين من ' + t.days.length + ' بالدورة)'),
+      h('div', { style: 'max-height:42vh;overflow:auto;display:grid;gap:10px' }, t.days.map(function (d, i) {
+        if (!d) return h('div', { class: 'mu sm' }, dayLabel(i) + ' · 😴 راحة');
+        return h('div', { class: 'grp pad' }, h('div', { class: 'b' }, dayLabel(i) + ' · ' + d[0]), d[1].map(function (x, k) { var ex = tplFind(x[0]), r = STARTER.filter(function (z) { return z[1] === x[0]; })[0]; return h('div', { class: 'mu sm' }, (r ? r[0] : x[0]) + ' · ' + x[1] + '×' + x[2] + '–' + x[3] + (x[4] === 1 ? ' ⛓' : '') + (ex ? '' : ' (جديد)')); }));
+      })),
+      h('button', { class: 'btn pri f', style: 'margin-top:12px', onclick: function () { tplCreate(t).then(function (p) { close(); toast('انسوّى البرنامج 💪', 'ok'); go('training/' + p.id); }); } }, 'أنشئ هذا البرنامج'));
+  }
+  list(); close = sheet('قوالب جاهزة', box);
+}
 PAGES.training = function (args) {
   if (args[0]) { var p = S.prog.filter(function (x) { return x.id === args[0]; })[0]; if (p) return pgProgram(p); }
   var root = h('div', { class: 'page' });
-  root.appendChild(h('div', { class: 'top' }, h('h1', {}, 'البرامج'), h('button', { class: 'btn pri s', onclick: function () { progForm(); } }, ic('plus'), 'برنامج')));
-  if (!S.prog.length) root.appendChild(h('div', { class: 'grp' }, emptyBox('ماكو برنامج بعد — سوّي واحد وخلّ الفوضى تنتهي', 'مثلاً: دفع / سحب / أرجل، أو أي تقسيم يعجبك.', h('button', { class: 'btn pri', onclick: function () { progForm(); } }, 'إنشاء برنامج'))));
+  root.appendChild(h('div', { class: 'top' }, h('h1', {}, 'البرامج'), h('div', { class: 'row', style: 'gap:8px' }, h('button', { class: 'btn s', onclick: tplSheet }, 'قوالب'), h('button', { class: 'btn pri s', onclick: function () { progForm(); } }, ic('plus'), 'برنامج'))));
+  if (!S.prog.length) root.appendChild(h('div', { class: 'grp' }, emptyBox('ماكو برنامج بعد — سوّي واحد وخلّ الفوضى تنتهي', 'خذ قالب جاهز وعدّل عليه، أو سوّي برنامجك من الصفر.', h('div', { class: 'row wrap' }, h('button', { class: 'btn pri', onclick: tplSheet }, 'قوالب جاهزة'), h('button', { class: 'btn', onclick: function () { progForm(); } }, 'إنشاء برنامج')))));
   else root.appendChild(h('div', { class: 'grp' }, S.prog.slice().sort(function (a, b) { return (a.archived - b.archived) || a.created - b.created; }).map(function (p) {
     return h('div', { class: 'it', onclick: function () { go('training/' + p.id); } }, h('div', { class: 'g' }, h('div', { class: 'b' }, p.name, p.active ? h('span', { class: 'tag bl', style: 'margin-inline-start:8px' }, 'مفعّل') : null, p.archived ? h('span', { class: 'tag', style: 'margin-inline-start:8px' }, 'مؤرشف') : null), h('div', { class: 'mu sm' }, p.days.length + ' أيام · ' + p.days.reduce(function (a, d) { return a + d.exercises.length; }, 0) + ' تمرين')),
       h('button', { class: 'ib', onclick: function (e) { e.stopPropagation(); progMenu(p); }, 'aria-label': 'خيارات' }, ic('dots')));
@@ -1134,7 +1479,7 @@ function pgProgram(p) {
       h('div', { class: 'row', style: 'gap:2px' }, h('button', { class: 'ib', onclick: function () { mv(p.days, di, -1); }, 'aria-label': 'للأعلى' }, ic('up')), h('button', { class: 'ib', onclick: function () { mv(p.days, di, 1); }, 'aria-label': 'للأسفل' }, ic('down')), h('button', { class: 'btn s', onclick: function () { dayForm(p, d); } }, 'تعديل')));
     if (d.rest) { root.appendChild(h('div', { class: 'sec' }, head)); return; }
     root.appendChild(h('div', { class: 'sec' }, head,
-      h('div', { class: 'grp' }, d.exercises.length ? d.exercises.map(function (e, ei) { var ex = exById(e.exId); return h('div', { class: 'it', onclick: function () { peForm(p, d, e); } }, h('div', { class: 'g' }, h('div', { class: 'b' }, ex ? ex.name : '(تمرين محذوف)'), h('div', { class: 'mu sm' }, e.sets + ' مجموعات' + (e.min ? ' × ' + e.min + '–' + e.max + (ex && ex.tracking === 'duration' ? ' ثانية' : ' تكرار') : '') + (e.rest != null ? ' · راحة ' + e.rest + 'ث' : ''))),
+      h('div', { class: 'grp' }, d.exercises.length ? d.exercises.map(function (e, ei) { var ex = exById(e.exId); return h('div', { class: 'it', onclick: function () { peForm(p, d, e); } }, h('div', { class: 'g' }, h('div', { class: 'b' }, ex ? ex.name : '(تمرين محذوف)', e.link && ei < d.exercises.length - 1 ? h('span', { class: 'tag yl', style: 'margin-inline-start:8px' }, '⛓ سوبر سِت مع اللي بعده') : null), h('div', { class: 'mu sm' }, e.sets + ' مجموعات' + (e.min ? ' × ' + e.min + '–' + e.max + (ex && ex.tracking === 'duration' ? ' ثانية' : ' تكرار') : '') + (e.rest != null ? ' · راحة ' + e.rest + 'ث' : ''))),
         h('button', { class: 'ib', onclick: function (ev) { ev.stopPropagation(); mv(d.exercises, ei, -1); }, 'aria-label': 'للأعلى' }, ic('up')), h('button', { class: 'ib', onclick: function (ev) { ev.stopPropagation(); mv(d.exercises, ei, 1); }, 'aria-label': 'للأسفل' }, ic('down'))); }) : h('div', { class: 'empty' }, 'لا توجد تمارين في هذا اليوم.')),
       h('div', { class: 'row', style: 'margin-top:10px' }, h('button', { class: 'btn g', onclick: function () { pickExercises(function (list) { list.forEach(function (x) { d.exercises.push({ id: uid(), exId: x.id, sets: 3, min: x.tracking === 'duration' ? 30 : 8, max: x.tracking === 'duration' ? 60 : 12, rest: null, notes: '', prog: 'auto' }); }); save(); }); } }, ic('plus'), 'تمارين'), h('button', { class: 'btn pri g', disabled: !!activeSes() || !d.exercises.length, onclick: function () { startFromDay(p.id, d.id); } }, 'ابدأ هذا اليوم'))));
   });
@@ -1159,14 +1504,15 @@ function dayForm(p, d) {
 function peForm(p, d, e) {
   var ex = exById(e.exId), dur = ex && ex.tracking === 'duration';
   var sets = h('input', { type: 'text', inputmode: 'numeric', dir: 'ltr', value: e.sets }), mn = h('input', { type: 'text', inputmode: 'numeric', dir: 'ltr', value: e.min || '' }), mx = h('input', { type: 'text', inputmode: 'numeric', dir: 'ltr', value: e.max || '' }), rest = h('input', { type: 'text', inputmode: 'numeric', dir: 'ltr', value: e.rest == null ? '' : e.rest, placeholder: 'افتراضي' }), nt = h('textarea', { rows: 2 }, e.notes || '');
+  var lk = h('input', { type: 'checkbox', checked: !!e.link }), lkRow = d.exercises.indexOf(e) < d.exercises.length - 1 ? h('label', { class: 'row', style: 'padding:10px 0;min-height:48px' }, lk, h('span', { class: 'g' }, 'سوبر سِت مع التمرين اللي بعده ⛓')) : null;
   var pm = sel(['auto', 'off'], e.prog || 'auto', null, function (v) { return v === 'auto' ? 'اقتراحات المدرب مفعّلة' : 'اقتراحات المدرب متوقفة لهذا التمرين'; });
-  var close = sheet(ex ? ex.name : 'تمرين', h('div', {}, h('div', { class: 'row' }, h('div', { class: 'g' }, field('المجموعات', sets)), h('div', { class: 'g' }, field(dur ? 'أقل مدة (ث)' : 'أقل تكرار', mn)), h('div', { class: 'g' }, field(dur ? 'أكثر مدة (ث)' : 'أكثر تكرار', mx))), field('الراحة بالثواني (اختياري)', rest), field('التدرّج', pm), field('ملاحظات (اختياري)', nt),
+  var close = sheet(ex ? ex.name : 'تمرين', h('div', {}, h('div', { class: 'row' }, h('div', { class: 'g' }, field('المجموعات', sets)), h('div', { class: 'g' }, field(dur ? 'أقل مدة (ث)' : 'أقل تكرار', mn)), h('div', { class: 'g' }, field(dur ? 'أكثر مدة (ث)' : 'أكثر تكرار', mx))), field('الراحة بالثواني (اختياري)', rest), field('التدرّج', pm), lkRow, field('ملاحظات (اختياري)', nt),
     h('button', { class: 'btn s dg', onclick: function () { d.exercises = d.exercises.filter(function (x) { return x.id !== e.id; }); persist('programs', p).then(function () { close(); rerender(); }); } }, 'إزالة من هذا اليوم')),
     function (c) { return [h('button', { class: 'btn', onclick: c }, 'إلغاء'), h('button', { class: 'btn pri', onclick: function () {
       var a = num(mn.value), b = num(mx.value), s = parseInt(norm(sets.value), 10);
       if (!(s >= 1 && s <= 30)) return toast('عدد المجموعات بين 1 و 30', 'er');
       if ((a == null) !== (b == null) || (a != null && (a < 1 || a > b))) return toast('اكتب أقل وأكثر (الأقل ≤ الأكثر)، أو اتركهما فارغين', 'er');
-      Object.assign(e, { sets: s, min: a, max: b, rest: rest.value.trim() === '' ? null : Math.max(0, parseInt(norm(rest.value), 10) || 0), notes: nt.value.trim(), prog: pm.value });
+      Object.assign(e, { sets: s, min: a, max: b, rest: rest.value.trim() === '' ? null : Math.max(0, parseInt(norm(rest.value), 10) || 0), notes: nt.value.trim(), prog: pm.value, link: !!(lkRow && lk.checked) });
       persist('programs', p).then(function () { c(); rerender(); });
     } }, 'حفظ')]; });
 }
@@ -1174,13 +1520,7 @@ function peForm(p, d, e) {
 function newSession(name, prog, day) { return { id: uid(), name: name, status: 'active', startedAt: Date.now(), completedAt: null, notes: '', progName: prog ? prog.name : '', progId: prog ? prog.id : null, dayId: day ? day.id : null, dayName: day ? day.name : '', exercises: [] }; }
 function mkSet() { return { id: uid(), type: 'working', w: null, reps: null, dur: null, status: 'pending' }; }
 function mkEx(ex, cfg) { var n = cfg ? cfg.sets : 3, sets = []; for (var i = 0; i < n; i++) sets.push(mkSet()); return { id: uid(), exId: ex.id, name: ex.name, tracking: ex.tracking, muscle: ex.muscle, notes: '', cfg: cfg ? { sets: cfg.sets, min: cfg.min, max: cfg.max, rest: cfg.rest, prog: cfg.prog } : null, sets: sets }; }
-function startFromDay(pid, did) {
-  if (activeSes()) return go('workout');
-  var p = S.prog.filter(function (x) { return x.id === pid; })[0], d = p && p.days.filter(function (x) { return x.id === did; })[0]; if (!d) return;
-  var s = newSession(d.name, p, d);
-  d.exercises.forEach(function (e) { var ex = exById(e.exId); if (ex && !ex.archived) s.exercises.push(mkEx(ex, e)); });
-  S.ses.push(s); persist('sessions', s).then(function () { go('workout'); route(); });
-}
+
 function startEmpty(name) { var s = newSession(name || 'تمرين', null, null); S.ses.push(s); persist('sessions', s).then(function () { go('workout'); route(); }); }
 PAGES.workout = function () {
   var a = activeSes(); if (a) return sessionEditor(a, true);
@@ -1200,26 +1540,27 @@ function prevFor(exId, beforeId) {
 }
 function setText(T, st) { return T === 'weight_reps' ? fmtN(kgTo(st.w), 1) + '×' + st.reps : T === 'duration' ? st.dur + 'ث' : (st.w ? '+' + fmtN(kgTo(st.w), 1) + ' ' : '') + st.reps + ' تكرار'; }
 function cols(T) { return (T === 'weight_reps' || T === 'bodyweight_reps') ? '30px 1fr 74px 64px 46px 30px' : '30px 1fr 64px 46px 30px'; }
+function ssLabel(s, e) { var gs = [], i; s.exercises.forEach(function (x) { if (x.ss && gs.indexOf(x.ss) < 0) gs.push(x.ss); }); i = gs.indexOf(e.ss); return 'سوبر سِت ' + (['أ', 'ب', 'ج', 'د', 'هـ', 'و'][i] || (i + 1)); }
 function priorBest(exId, exceptSid) {
   var b = 0;
-  done().forEach(function (x) { if (x.id === exceptSid) return; x.exercises.forEach(function (e) { if (e.exId !== exId || e.tracking !== 'weight_reps') return; e.sets.forEach(function (t) { if (t.status === 'completed' && t.type !== 'warmup' && t.reps >= 1 && t.w > b) b = t.w; }); }); });
+  done().forEach(function (x) { if (x.id === exceptSid) return; x.exercises.forEach(function (e) { if (e.exId !== exId || e.tracking !== 'weight_reps') return; e.sets.forEach(function (t) { if (t.status === 'completed' && isWork(t) && t.reps >= 1 && t.w > b) b = t.w; }); }); });
   return b;
 }
 function sessionEditor(s, live) {
   var root = h('div', { class: 'page' });
   function edit() { return persist('sessions', s); }
   function redraw() { rerender(); }
-  root.appendChild(h('div', { class: 'top' }, h('div', { class: 'row g' }, live ? null : backBtn('history'), h('div', { class: 'g' }, h('h1', {}, s.name), h('div', { class: 'mu sm' }, live ? ['جارٍ · ', h('span', { id: 'elapsed', class: 'ltr' }), ' · يُحفظ تلقائياً'] : (s.status === 'completed' ? 'منتهٍ · ' + fmtDate(s.completedAt) : 'لم يكتمل · ' + fmtDate(s.startedAt))))),
+  root.appendChild(h('div', { class: 'top' }, h('div', { class: 'row g' }, live ? null : backBtn('history'), h('div', { class: 'g' }, h('h1', {}, s.name), h('div', { class: 'mu sm' }, live ? ['جارٍ · ', h('span', { id: 'elapsed', class: 'ltr' }, fmtDur((Date.now() - s.startedAt) / 1000)), ' · يُحفظ تلقائياً', h('span', { id: 'wakeTag', style: WAKE.lock ? '' : 'display:none' }, ' · 🔆 الشاشة ما تنطفي')] : (s.status === 'completed' ? 'منتهٍ · ' + fmtDate(s.completedAt) : 'لم يكتمل · ' + fmtDate(s.startedAt))))),
     live ? h('div', { class: 'row' }, h('button', { class: 'ib', onclick: function () { renameSes(s); }, 'aria-label': 'تغيير الاسم' }, '✎'), h('button', { class: 'btn gn s', onclick: function () { finishDialog(s); } }, 'إنهاء')) : null));
   if (live) { var tick = function () { var el = $('#elapsed'); if (el) el.textContent = fmtDur((Date.now() - s.startedAt) / 1000); }; tick(); clearInterval(window._el); window._el = setInterval(tick, 1000); }
   if (!s.exercises.length) root.appendChild(h('div', { class: 'grp' }, emptyBox('التمرين فارغ مثل جيبي آخر الشهر 😅', 'أضف أول تمرين من الزر بالأسفل.')));
   s.exercises.forEach(function (e, ei) {
-    var T = e.tracking, ex = exById(e.exId), prev = e.exId ? prevFor(e.exId, s.id) : null, blk = h('div', { class: 'xc' }), cl = cols(T), dur = T === 'duration';
+    var T = e.tracking, ex = exById(e.exId), prev = e.exId ? prevFor(e.exId, s.id) : null, blk = h('div', { class: 'xc' + (e.ss ? ' ss' : '') + (NEXTUP === e.id ? ' next' : '') }), cl = cols(T), dur = T === 'duration';
     var pw = prev ? prev.sets.filter(function (x) { return x.type !== 'warmup'; }) : [];
     blk.appendChild(h('div', { class: 'ttl' }, h('span', { class: 'ix' }, String(ei + 1)), ex && S.img[ex.id] ? exThumb(ex, 'sm2', true) : null,
-      h('div', { class: 'g' }, h('h2', {}, e.name), h('div', { class: 'mu xs' }, TRK[T] + (e.cfg ? ' · الهدف ' + e.cfg.sets + (e.cfg.min ? '×' + e.cfg.min + '–' + e.cfg.max : '') : ''))),
+      h('div', { class: 'g' }, h('h2', {}, e.name), h('div', { class: 'mu xs' }, TRK[T] + (e.cfg ? ' · الهدف ' + e.cfg.sets + (e.cfg.min ? '×' + e.cfg.min + '–' + e.cfg.max : '') : ''), e.ss ? h('span', { class: 'tag yl', style: 'margin-inline-start:6px' }, '⛓ ' + ssLabel(s, e)) : null)),
       ex && ex.video && /^https?:\/\//i.test(ex.video) ? h('a', { href: ex.video, target: '_blank', rel: 'noopener', class: 'ib', 'aria-label': 'فيديو' }, ic('play')) : null,
-      h('button', { class: 'ib', onclick: function () { exMenu(s, e, ei, redraw, edit); }, 'aria-label': 'خيارات التمرين' }, ic('dots'))));
+      h('button', { class: 'ib', onclick: function () { exMenu(s, e, ei, redraw, edit, live); }, 'aria-label': 'خيارات التمرين' }, ic('dots'))));
     if (e.notes && !live) blk.appendChild(h('div', { class: 'mu sm' }, e.notes));
     delete TGT[e.id];
     if (ex && live && S.set.coach && !(e.cfg && e.cfg.prog === 'off') && !e.coachDismissed) {
@@ -1229,12 +1570,19 @@ function sessionEditor(s, live) {
       if (c) blk.appendChild(h('div', { class: 'coach' }, h('div', { class: 'b' }, (c.icon ? c.icon + ' ' : '🧠 ') + (c.title || 'المدرّب')), h('div', {}, c.msg)));
     }
     blk.appendChild(h('div', { class: 'sh', style: 'grid-template-columns:' + cl }, h('span', {}, '#'), h('span', {}, prev ? 'السابق' : ''), (dur || T === 'reps_only') ? null : h('span', {}, T === 'weight_reps' ? UL() : 'إضافي ' + UL()), h('span', {}, dur ? 'ثانية' : 'تكرار'), h('span'), h('span')));
-    var wi = 0;
+    var wi = 0, fp = -1;
+    for (var q = 0; q < e.sets.length; q++) if (e.sets[q].status === 'pending') { fp = q; break; }
     e.sets.forEach(function (st, si) {
-      var pv = '–'; if (st.type !== 'warmup') { var p = pw[wi]; wi++; if (p) pv = setText(T, p); }
-      blk.appendChild(setRow(s, e, st, si, T, edit, redraw, pv, cl, wi));
+      var pv = '–', p = null; if (st.type !== 'warmup') { p = pw[wi] || null; wi++; if (p) pv = setText(T, p); }
+      blk.appendChild(setRow({ s: s, e: e, st: st, si: si, T: T, edit: edit, redraw: redraw, pv: pv, pvSet: p, cl: cl, workIdx: wi, cur: live && si === fp }));
     });
-    blk.appendChild(h('button', { class: 'btn s f', style: 'margin-top:10px', onclick: function () { var last = e.sets[e.sets.length - 1], n = mkSet(); if (last) n.w = last.w; e.sets.push(n); edit().then(redraw); } }, ic('plus'), 'إضافة مجموعة'));
+    var acts = [h('button', { class: 'btn s g', onclick: function () { var last = e.sets[e.sets.length - 1], n = mkSet(); if (last) n.w = last.w; e.sets.push(n); edit().then(redraw); } }, ic('plus'), 'مجموعة')];
+    if (live && T === 'weight_reps' && !e.sets.some(function (t) { return t.type === 'warmup'; })) acts.push(h('button', { class: 'btn s', onclick: function () { warmupSheet(s, e, edit, redraw); } }, '🔥 إحماء'));
+    if (live && T === 'weight_reps' && isBarEq(ex)) acts.push(h('button', { class: 'btn s', onclick: function () {
+      var cp = e.sets.filter(function (t) { return t.status === 'pending'; })[0], w0 = cp && cp.w != null ? cp.w : (TGT[e.id] && TGT[e.id].w) || warmupBase(e);
+      plateCalc(w0, function (kg) { var t = e.sets.filter(function (x) { return x.status === 'pending'; })[0]; if (!t) { t = mkSet(); e.sets.push(t); } t.w = kg; edit().then(redraw); });
+    } }, '🧮 أقراص'));
+    blk.appendChild(h('div', { class: 'row wrap', style: 'margin-top:10px;gap:8px' }, acts));
     if (live && e.sets.some(function (t) { return t.status === 'completed' && t.type !== 'warmup'; })) blk.appendChild(effortRow(e, edit, redraw));
     if (live) blk.appendChild(h('input', { placeholder: 'ملاحظات هذا التمرين', 'aria-label': 'ملاحظات التمرين', value: e.notes || '', style: 'margin-top:10px', onchange: function (ev) { e.notes = ev.target.value; edit(); } }));
     root.appendChild(blk);
@@ -1246,23 +1594,22 @@ function sessionEditor(s, live) {
   return root;
 }
 function renameSes(s) { var n = h('input', { value: s.name }); sheet('اسم التمرين', n, function (c) { return [h('button', { class: 'btn', onclick: c }, 'إلغاء'), h('button', { class: 'btn pri', onclick: function () { if (n.value.trim()) s.name = n.value.trim(); persist('sessions', s).then(function () { c(); rerender(); }); } }, 'حفظ')]; }); }
-function exMenu(s, e, i, redraw, edit) {
-  var ex = exById(e.exId);
-  var acts = [];
-  if (ex) acts.push(['التفاصيل والملاحظات والصورة', function () { exerciseDetail(ex); }, true]);
-  acts.push(['تحريك للأعلى', function () { if (i > 0) { var t = s.exercises[i - 1]; s.exercises[i - 1] = s.exercises[i]; s.exercises[i] = t; } }]);
-  acts.push(['تحريك للأسفل', function () { if (i < s.exercises.length - 1) { var t = s.exercises[i + 1]; s.exercises[i + 1] = s.exercises[i]; s.exercises[i] = t; } }]);
-  acts.push(['إزالة من التمرين', function () { s.exercises.splice(i, 1); }]);
-  var close = sheet(e.name, h('div', { style: 'display:grid;gap:8px' }, acts.map(function (a) { return h('button', { class: 'btn' + (a[0].indexOf('إزالة') === 0 ? ' dg' : ''), onclick: function () { close(); a[1](); if (!a[2]) edit().then(redraw); } }, a[0]); })));
-}
 function valid2(T, st) { return T === 'weight_reps' ? st.reps >= 1 && st.w != null && st.w >= 0 : T === 'duration' ? st.dur >= 1 : st.reps >= 1; }
-function setRow(s, e, st, si, T, edit, redraw, pv, cl, workIdx) {
-  var dur = T === 'duration', row = h('div', { class: 'set' + (st.type === 'warmup' ? ' warm' : '') + (st.status === 'completed' ? ' done' : '') + (st.status === 'skipped' ? ' skip' : ''), style: 'grid-template-columns:' + cl });
+var STNAME = { warmup: 'إحماء', drop: 'دروب سِت', failure: 'للفشل' };
+function setRow(o) {
+  var s = o.s, e = o.e, st = o.st, si = o.si, T = o.T, edit = o.edit, redraw = o.redraw, pv = o.pv, pvSet = o.pvSet, cl = o.cl, workIdx = o.workIdx, dur = T === 'duration', ex = exById(e.exId);
+  var tcls = st.type === 'warmup' ? ' warm' : st.type === 'drop' ? ' drp' : st.type === 'failure' ? ' fail' : '';
+  var row = h('div', { class: 'set' + tcls + (st.status === 'completed' ? ' done' : '') + (st.status === 'skipped' ? ' skip' : ''), style: 'grid-template-columns:' + cl });
   var wv = st.w == null ? '' : fmtN(kgTo(st.w), 2), tg = TGT[e.id];
   function numInput(val, onc, ph, label) { return h('input', { type: 'text', inputmode: 'decimal', value: val, placeholder: ph || '', 'aria-label': label, autocomplete: 'off', onchange: function (ev) { onc(ev.target.value); edit(); } }); }
-  row.appendChild(h('button', { class: 'no', 'aria-label': st.type === 'warmup' ? 'مجموعة إحماء (اضغط لتحويلها لمجموعة عمل)' : 'مجموعة عمل (اضغط لتحويلها لإحماء)', onclick: function () { st.type = st.type === 'warmup' ? 'working' : 'warmup'; edit().then(redraw); } }, st.type === 'warmup' ? 'إح' : String(workIdx)));
-  row.appendChild(h('div', { class: 'pv' }, pv));
+  row.appendChild(h('button', { class: 'no' + (STBADGE[st.type] ? ' t' : ''), 'aria-label': 'نوع المجموعة: ' + (STNAME[st.type] || 'مجموعة عمل') + ' (اضغط للتغيير)', onclick: function () { typeSheet(st, redraw, edit); } }, STBADGE[st.type] || String(workIdx)));
   var wIn = null, rIn;
+  function copyPrev() {
+    if (wIn && pvSet.w != null) { st.w = pvSet.w; wIn.value = fmtN(kgTo(pvSet.w), 2); }
+    if (dur) { if (pvSet.dur != null) { st.dur = pvSet.dur; rIn.value = pvSet.dur; } } else if (pvSet.reps != null) { st.reps = pvSet.reps; rIn.value = pvSet.reps; }
+    buzz(8); edit(); toast('نسخت أرقام المرة السابقة', 'ok');
+  }
+  row.appendChild(pvSet && st.status === 'pending' ? h('button', { class: 'pv cp', 'aria-label': 'انسخ أرقام المرة السابقة', onclick: copyPrev }, pv) : h('div', { class: 'pv' }, pv));
   if (!dur && T !== 'reps_only') { wIn = numInput(wv, function (v) { var n = num(v); if (norm(v) === '') st.w = null; else if (n != null && n >= 0) st.w = +toKg(n).toFixed(4); }, tg && tg.w != null ? fmtN(kgTo(tg.w), 2) : (T === 'bodyweight_reps' ? '0' : ''), 'الوزن'); row.appendChild(wIn); }
   rIn = numInput(dur ? (st.dur == null ? '' : st.dur) : (st.reps == null ? '' : st.reps), function (v) { var n = num(v), val = norm(v) === '' ? null : (n != null && n >= 0 ? Math.round(n) : null); if (dur) st.dur = val; else st.reps = val; }, tg && tg.reps != null ? String(tg.reps) : '', dur ? 'الثواني' : 'التكرارات');
   row.appendChild(rIn);
@@ -1273,14 +1620,42 @@ function setRow(s, e, st, si, T, edit, redraw, pv, cl, workIdx) {
     if (!valid2(T, st)) return toast(dur ? 'اكتب عدد الثواني أولاً' : T === 'weight_reps' ? 'اكتب الوزن (يجوز صفر) والتكرارات' : 'اكتب عدد التكرارات أولاً', 'er');
     st.status = 'completed'; st.at = Date.now(); buzz(15);
     var pr = false;
-    if (T === 'weight_reps' && st.type !== 'warmup' && st.w > 0) { var pb = priorBest(e.exId, s.id); if (pb > 0 && st.w > pb + 1e-6) { st.pr = true; pr = true; } else delete st.pr; }
+    if (T === 'weight_reps' && isWork(st) && st.w > 0) { var pb = priorBest(e.exId, s.id); if (pb > 0 && st.w > pb + 1e-6) { st.pr = true; pr = true; } else delete st.pr; }
+    var nx = s.status === 'active' && st.type !== 'warmup' ? ssNext(s, e) : null;
     var OK = ['عفية! 💪', 'تمام، سجّلتها ✔', 'كمّل يا وحش', 'هيك ويّاك! 🔥', 'كفو، الجاية'];
-    toast(pr ? 'رقم قياسي جديد! عاش يا وحش 🔥 ' + e.name + ' ' + fmtW(st.w) : OK[Math.floor(Math.random() * OK.length)], pr ? 'pr' : 'ok');
-    edit().then(function () { if (S.set.autoRest && s.status === 'active') startRest(e.cfg && e.cfg.rest != null ? e.cfg.rest : S.set.rest); redraw(); });
+    toast(pr ? 'رقم قياسي جديد! عاش يا وحش 🔥 ' + e.name + ' ' + fmtW(st.w) : nx ? 'سوبر سِت ⛓ الجاي: ' + nx.name : OK[Math.floor(Math.random() * OK.length)], pr ? 'pr' : 'ok');
+    edit().then(function () {
+      if (s.status === 'active') {
+        NEXTUP = nx ? nx.id : null;
+        var nxt = e.sets[si + 1], chain = st.type === 'drop' && nxt && nxt.type === 'drop' && nxt.status === 'pending';
+        if (nx) stopRest(); else if (S.set.autoRest && !chain) startRest(restFor(e, st));
+      }
+      redraw();
+      if (nx) setTimeout(function () { var el = document.querySelector('.xc.next'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 90);
+    });
   } }, ic('check')));
   row.appendChild(h('button', { class: 'ib', style: 'width:30px;height:44px', 'aria-label': 'خيارات المجموعة', onclick: function () {
     var close = sheet('المجموعة ' + (si + 1), h('div', { style: 'display:grid;gap:8px' }, h('button', { class: 'btn', onclick: function () { close(); st.status = st.status === 'skipped' ? 'pending' : 'skipped'; delete st.pr; edit().then(redraw); } }, st.status === 'skipped' ? 'إلغاء التخطّي' : 'تخطّي هذه المجموعة'), h('button', { class: 'btn dg', onclick: function () { close(); e.sets.splice(si, 1); edit().then(redraw); } }, 'حذف المجموعة')));
   } }, ic('dots')));
+  if (o.cur) {
+    /* أزرار ± للمجموعة الحالية فقط (أول مجموعة ما انتهت) */
+    var wm, wp, rm, rp;
+    function wStepNow() { var c = wIn ? num(wIn.value) : null, base = c != null ? c : (st.w != null ? kgTo(st.w) : (tg && tg.w != null ? kgTo(tg.w) : 0)); return { base: base, step: stepDisp(ex) }; }
+    function labW() { var q = wStepNow(); wm.textContent = '−' + fmtN(q.step, 2); wp.textContent = '+' + fmtN(q.step, 2); }
+    function bumpW(d) { var q = wStepNow(), nv = Math.max(0, +(q.base + d * q.step).toFixed(3)); st.w = +toKg(nv).toFixed(4); wIn.value = fmtN(nv, 2); buzz(8); edit(); labW(); }
+    function bumpR(d) {
+      var c = num(rIn.value), base = c != null ? c : (dur ? (st.dur != null ? st.dur : (tg && tg.reps != null ? tg.reps : 30)) : (st.reps != null ? st.reps : (tg && tg.reps != null ? tg.reps : 8)));
+      var nv = Math.max(0, Math.round(base + d * (dur ? 5 : 1))); if (dur) st.dur = nv; else st.reps = nv; rIn.value = nv; buzz(8); edit();
+    }
+    var sg1 = null;
+    if (wIn) {
+      wm = h('button', { type: 'button', 'aria-label': 'أنقص الوزن', onclick: function () { bumpW(-1); } }, ''); wp = h('button', { type: 'button', 'aria-label': 'زِد الوزن', onclick: function () { bumpW(1); } }, '');
+      sg1 = h('div', { class: 'sg' }, wm, wp, h('span', { class: 'lb' }, UL())); labW();
+    }
+    rm = h('button', { type: 'button', 'aria-label': dur ? 'أنقص الثواني' : 'أنقص التكرارات', onclick: function () { bumpR(-1); } }, dur ? '−5' : '−1');
+    rp = h('button', { type: 'button', 'aria-label': dur ? 'زِد الثواني' : 'زِد التكرارات', onclick: function () { bumpR(1); } }, dur ? '+5' : '+1');
+    row.appendChild(h('div', { class: 'stp' }, sg1, h('div', { class: 'sg' }, rm, rp, h('span', { class: 'lb' }, dur ? 'ثانية' : 'تكرار'))));
+  }
   if (st.pr && st.status === 'completed') row.appendChild(h('div', { class: 'pr' }, '🔥 رقم قياسي جديد! أعلى وزن سجّلته لهذا التمرين'));
   return row;
 }
@@ -1387,7 +1762,7 @@ PAGES.history = function () {
 };
 PAGES.settings = function () {
   var root = h('div', { class: 'page' });
-  function sv() { return saveSet().then(applyTheme); }
+  function sv() { return saveSet().then(applyTheme).then(syncWake); }
   function chk(label, key) { return h('label', { class: 'row', style: 'padding:14px 16px;min-height:56px' }, h('input', { type: 'checkbox', checked: !!S.set[key], onchange: function (e) { S.set[key] = e.target.checked; sv(); } }), h('span', { class: 'g' }, label)); }
   var rest = h('input', { type: 'text', inputmode: 'numeric', dir: 'ltr', value: S.set.rest, onchange: function (e) { var n = parseInt(norm(e.target.value), 10); if (n >= 10 && n <= 900) { S.set.rest = n; sv(); } else { e.target.value = S.set.rest; toast('بين 10 و 900 ثانية', 'er'); } } });
   var inc = h('input', { type: 'text', inputmode: 'decimal', dir: 'ltr', value: fmtN(kgTo(S.set.inc), 2), onchange: function (e) { var n = num(e.target.value); if (n > 0 && n <= 50) { S.set.inc = +toKg(n).toFixed(4); sv(); } else e.target.value = fmtN(kgTo(S.set.inc), 2); } });
@@ -1395,7 +1770,7 @@ PAGES.settings = function () {
   var unitSeg = h('div', { class: 'seg' }, ['kg', 'lb'].map(function (u) { return h('button', { class: S.set.unit === u ? 'on' : '', onclick: function () { S.set.unit = u; sv().then(rerender); } }, u === 'kg' ? 'كيلوغرام' : 'باوند'); }));
   var themeSeg = h('div', { class: 'seg' }, [['dark', 'داكن'], ['light', 'فاتح']].map(function (u) { return h('button', { class: (S.set.theme === 'light' ? 'light' : 'dark') === u[0] ? 'on' : '', onclick: function () { S.set.theme = u[0]; sv().then(rerender); } }, u[1]); }));
   root.appendChild(h('div', { class: 'top' }, h('div', { class: 'row' }, backBtn('more'), h('h1', {}, 'الإعدادات'))));
-  root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'التمرين'), h('div', { class: 'grp pad' }, field('اسمك أو لقبك (للتحية)', nameIn), field('وحدة الوزن (يُخزَّن بالكيلوغرام ويُحوَّل للعرض)', unitSeg), field('الراحة الافتراضية (ثانية)', rest), field('المظهر', themeSeg)), h('div', { class: 'grp', style: 'margin-top:10px' }, chk('تشغيل مؤقت الراحة تلقائياً بعد كل مجموعة', 'autoRest'), chk('اهتزاز عند انتهاء الراحة وإكمال المجموعة', 'vibrate'))));
+  root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'التمرين'), h('div', { class: 'grp pad' }, field('اسمك أو لقبك (للتحية)', nameIn), field('وحدة الوزن (يُخزَّن بالكيلوغرام ويُحوَّل للعرض)', unitSeg), field('الراحة الافتراضية (ثانية)', rest), field('المظهر', themeSeg)), h('div', { class: 'grp', style: 'margin-top:10px' }, chk('تشغيل مؤقت الراحة تلقائياً بعد كل مجموعة', 'autoRest'), chk('اهتزاز عند انتهاء الراحة وإكمال المجموعة', 'vibrate'), chk(wakeSupported() ? 'إبقاء الشاشة شغّالة أثناء التمرين (ما تنطفي)' : 'إبقاء الشاشة شغّالة (متصفحك ما يدعمها)', 'wake'))));
   root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'المدرّب (اقتراحات التدرّج)'), h('p', { class: 'mu sm', style: 'margin-bottom:8px' }, 'قواعد محلية على مجموعاتك المسجلة. اختياري، لا يغيّر برنامجك أبداً، ولا يعرف حالتك. توقف إذا شعرت بألم.'), progHelp(), h('div', { class: 'grp' }, chk('إظهار اقتراحات المدرّب', 'coach'), h('div', { class: 'pad', style: 'border-top:1px solid var(--ln)' }, field('خطوة زيادة الوزن الافتراضية (' + UL() + ')', inc)))));
   var imp = h('input', { type: 'file', accept: '.json,application/json', style: 'display:none', onchange: function (ev) { importFile(ev.target.files[0]); ev.target.value = ''; } });
   root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'بياناتك على هذا الجهاز'), h('div', { class: 'warn', style: 'margin-bottom:10px' }, 'بياناتك محفوظة داخل هذا المتصفح فقط. مسح بيانات Chrome أو نقل الملف قد يحذفها. صدّر نسخة احتياطية باستمرار واحفظها بمكان آخر (Telegram، Drive، كمبيوتر).'),
@@ -1408,7 +1783,7 @@ PAGES.settings = function () {
     h('div', {}, 'مسح بيانات المتصفح أو حذف التطبيق يمسح السجل. صدّر نسخة احتياطية قبل أي تحديث أو تغيير في طريقة التثبيت.'),
     h('div', { class: 'b' }, 'آخر نسخة احتياطية: ' + (lb ? new Date(lb).toLocaleDateString(LOC, { day: 'numeric', month: 'long', year: 'numeric' }) : 'لم تُصدَّر بعد')))));
   root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'عن التطبيق'), h('div', { style: 'padding:14px 0 8px' }, brand()),
-    h('p', { class: 'mu sm' }, 'الإصدار 2.0 — يعمل بدون إنترنت. لا حساب ولا خادم ولا تحليلات، ولا يُرسل أي شيء لأي مكان. الحجم = مجموع (الوزن × التكرارات) لمجموعات العمل المكتملة في تمارين الوزن + التكرارات فقط.'),
+    h('p', { class: 'mu sm' }, 'الإصدار 3.0.1 — يعمل بدون إنترنت. لا حساب ولا خادم ولا تحليلات، ولا يُرسل أي شيء لأي مكان. الحجم = مجموع (الوزن × التكرارات) لمجموعات العمل المكتملة في تمارين الوزن + التكرارات فقط.'),
     h('p', { class: 'mu sm', style: 'margin-top:6px' }, swOn ? 'وضع التثبيت: يعمل بدون إنترنت (Service Worker مفعّل).' : 'وضع التشغيل: ملف محلي أو بدون Service Worker.')));
   return root;
 };

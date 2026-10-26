@@ -346,6 +346,12 @@ button.tag{background:transparent;font-family:inherit;font-size:.74rem;cursor:po
 .chl .bar{margin:8px 0 6px}
 .c>.stk-i{margin:0 auto}
 .tr-row:not(.ok) .tk{color:var(--t2)}
+/* ===== المرحلة ٤: حالة التخزين ===== */
+.stt{display:flex;gap:10px;align-items:flex-start;line-height:1.6}
+.stt>i{font-style:normal;font-size:1.25rem;line-height:1.35;flex:none}
+.stt b{display:block;font-size:.98rem}
+.stt.ok b{color:var(--gn)}
+.stt.no b{color:var(--am)}
 
 </style>
 </head>
@@ -795,7 +801,7 @@ PAGES.dashboard = function () {
   } else focal = h('div', { class: 'today' }, h('h1', {}, 'يلا ابدأ، الحديد ينتظرك'), h('div', { class: 'mu' }, 'أنشئ برنامجاً أو ابدأ تمريناً فارغاً مباشرة.'), h('div', { class: 'row wrap', style: 'margin-top:14px' }, h('button', { class: 'btn pri', onclick: function () { go('training'); } }, 'إنشاء برنامج'), h('button', { class: 'btn', onclick: function () { go('workout'); } }, 'تمرين فارغ')));
   root.appendChild(focal);
   var lb = S.set.lastBackup;
-  if (dd.length >= 3 && (!lb || Date.now() - lb > 14 * 864e5)) root.appendChild(h('div', { class: 'warn row' }, h('div', { class: 'g' }, lb ? 'صار لك أكثر من أسبوعين بدون نسخة احتياطية، عيب 😅' : 'ما سويت نسخة احتياطية! لا تخلي تعبك يروح إذا الموبايل انكسر 😬'), h('button', { class: 'btn s', onclick: exportData }, 'سوّ نسخة الآن')));
+  if (dd.length >= 3 && (!lb || Date.now() - lb > 14 * 864e5)) root.appendChild(h('div', { class: 'warn row' }, h('div', { class: 'g' }, lb ? 'صار لك أكثر من أسبوعين بدون نسخة احتياطية، عيب 😅' : 'ما سويت نسخة احتياطية! لا تخلي تعبك يروح إذا الموبايل انكسر 😬'), h('button', { class: 'btn s', onclick: exportAsk }, 'سوّ نسخة الآن')));
   root.appendChild(rankCard());
   var pbd = progBoard(); if (pbd) root.appendChild(pbd);
   if (dd.length || pr) {
@@ -1921,6 +1927,146 @@ PAGES.challenges = function () {
   root.appendChild(h('p', { class: 'mu xs' }, 'التحديات تنحسب من تمارينك المسجّلة فقط. هدف الحضور والمجموعات مبني على شهرك الماضي (نفس الحضور تقريباً وزيادة بسيطة بالمجموعات)، وأول شهر الأهداف بسيطة وثابتة. هذي للتحفيز، مو مقياس لقوتك.'));
   return root;
 };
+/* ===== المرحلة ٤: مشاركة النسخة الاحتياطية + حالة التخزين الدائم + نقل الإعدادات عند الاستيراد ===== */
+
+// ---------- ختم «آخر نسخة احتياطية» ----------
+function bkTxt() { var lb = S.set.lastBackup; return 'آخر نسخة احتياطية: ' + (lb > 0 ? new Date(lb).toLocaleDateString(LOC, { day: 'numeric', month: 'long', year: 'numeric' }) : 'لم تُصدَّر بعد'); }
+function bkStamp() {
+  S.set.lastBackup = Date.now();
+  try { saveSet().catch(function () {}); } catch (e) {}
+  var el = document.getElementById('lastbk'); if (el) el.textContent = bkTxt();
+}
+function bkName() { return 'titanlog-backup-' + ymd(Date.now()) + '.json'; }
+
+// ---------- سؤال الصور (يُستخدم للتصدير وللمشاركة) ----------
+function backupAsk(act, title, tail) {
+  if (Store.mode !== 'idb') return act(false);
+  photosLoad().then(function () {
+    if (!S.photos.length) return act(false);
+    var mb = (S.photos.reduce(function (a, p) { return a + (p.data ? p.data.length : 0) + (p.th ? p.th.length : 0); }, 0) / 1048576).toFixed(1);
+    sheet(title, h('div', {}, h('p', {}, 'عندك ' + S.photos.length + ' صورة تقدّم (حوالي ' + mb + ' ميغابايت).'), h('p', { class: 'mu sm', style: 'margin-top:8px' }, tail)), function (c) { return [h('button', { class: 'btn', onclick: c }, 'إلغاء'), h('button', { class: 'btn', onclick: function () { c(); act(false); } }, 'بدون الصور'), h('button', { class: 'btn pri', onclick: function () { c(); act(true); } }, 'مع الصور')]; });
+  }, function () { toast('تعذّرت قراءة الصور، جهّزت النسخة بدونها', 'er'); act(false); });
+}
+function exportAsk() { backupAsk(function (ph) { exportData({ photos: ph }); }, 'تصدير نسخة احتياطية', 'النسخة مع الصور أكبر حجماً، وأي شخص تشاركها وياه يشوف صورك. بدون الصور أخف وأأمن للمشاركة (وصورك الحالية ما تتأثر لما تستورد النسخة).'); }
+function shareAsk() { backupAsk(shareBackup, 'مشاركة النسخة', 'اللي تشاركه وياه النسخة يكدر يشوف صورك لو حطّيتها بالنسخة. بدون الصور أخف وأأمن (وصورك الحالية ما تتأثر لما تستورد النسخة).'); }
+
+// ---------- مشاركة النسخة (Web Share) ----------
+var SHARE_MSG = { title: 'نسخة TITANLOG الاحتياطية', text: 'نسخة احتياطية من بيانات TITANLOG — احفظها بمكان آمن.' };
+function shareSupported() { try { return typeof navigator.share === 'function' && typeof navigator.canShare === 'function'; } catch (e) { return false; } }
+// أنواع الملفات المسموحة بالمشاركة يقررها المتصفح (وغالباً JSON مو ضمنها)، فنجرّب النوعين ونتأكد بـ canShare قبل ما نشارك.
+function shareData(json) {
+  if (!shareSupported()) return null;
+  var ts = ['application/json', 'text/plain'], i, d;
+  for (i = 0; i < ts.length; i++) {
+    try {
+      d = { files: [new File([json], bkName(), { type: ts[i] })], title: SHARE_MSG.title, text: SHARE_MSG.text };
+      if (navigator.canShare(d)) return d;
+    } catch (e) {}
+  }
+  return null;
+}
+// تُرجع: shared | cancel | blocked (ما اعتبرها المتصفح ضغطة مستخدم) | failed
+function shareSend(d) {
+  var p; try { p = navigator.share(d); } catch (e) { return Promise.resolve('failed'); }
+  return Promise.resolve(p).then(function () { return 'shared'; }, function (e) {
+    var n = e && e.name; return n === 'AbortError' ? 'cancel' : n === 'NotAllowedError' ? 'blocked' : 'failed';
+  });
+}
+function shareBackup(photos) {
+  return backupBuild(!!photos, true).then(function (json) {
+    var d = shareData(json);
+    if (!d) return shareFallback(json, 'type');
+    return shareSend(d).then(function (r) { shareResult(r, d, json, true); });
+  }, function () { toast('تعذّر تجهيز النسخة، ما تغيّر شي', 'er'); });
+}
+function shareResult(r, d, json, first) {
+  if (r === 'shared') { bkStamp(); toast('تمت المشاركة ✅ — تأكد إنها وصلت للمكان اللي اخترته', 'ok'); }
+  else if (r === 'blocked' && first) shareRetry(d, json);
+  else if (r !== 'cancel') shareFallback(json, r);
+}
+// المتصفح يطلب ضغطة جديدة (انتهت صلاحية الضغطة الأولى لأن تجهيز النسخة أخذ وقت)
+function shareRetry(d, json) {
+  sheet('النسخة جاهزة', h('p', {}, 'المتصفح يريد ضغطة جديدة منك قبل ما يفتح المشاركة. اضغط الزر.'), function (c) {
+    return [h('button', { class: 'btn', onclick: c }, 'إلغاء'), h('button', { class: 'btn pri', onclick: function () { c(); shareSend(d).then(function (r) { shareResult(r, d, json, false); }); } }, 'شاركها الآن')];
+  });
+}
+// المشاركة المباشرة مو متوفرة: ننزّل النسخة ونوضّح الخطوة اليدوية (ما نخلي المستخدم يحسب إنها انرسلت)
+function shareFallback(json, why) {
+  download(bkName(), json); bkStamp();
+  sheet('نزّلنا النسخة بدل المشاركة', h('div', {}, h('p', {}, why === 'type' ? 'متصفحك ما يسمح يشارك ملف النسخة مباشرة من التطبيق.' : 'المتصفح ما فتح قائمة المشاركة.'), h('p', { class: 'mu sm', style: 'margin-top:8px' }, 'النسخة انحفظت على جهازك (غالباً بمجلد التنزيلات). افتح تطبيق «الملفات»، اختار الملف وشاركه من هناك لتلغرام أو واتساب أو أي مكان تريده. وقت تحتاجها ارجع هنا واختار «استيراد نسخة».')), function (c) { return [h('button', { class: 'btn pri', onclick: c }, 'تمام')]; });
+}
+function shareRow() {
+  if (!shareSupported()) return null;
+  return h('div', { style: 'margin-top:10px' }, h('button', { class: 'btn f', id: 'sharebk', onclick: shareAsk }, '📤 شارك النسخة (واتساب / تلغرام)'),
+    h('div', { class: 'mu sm', style: 'margin-top:8px' }, 'تطلع قائمة المشاركة. الأفضل تختار «رسائلي المحفوظة» بتلغرام أو محادثتك ويا نفسك بواتساب، وتبقى النسخة بحسابك وتنزّلها وقت ما تحتاج.'));
+}
+
+// ---------- حالة التخزين الدائم ----------
+function fmtBytes(n) {
+  if (typeof n !== 'number' || !isFinite(n) || n < 0) return '–';
+  if (n < 1024) return fmtN(n, 0) + ' بايت';
+  if (n < 1048576) return fmtN(n / 1024, 0) + ' كيلوبايت';
+  if (n < 1073741824) return fmtN(n / 1048576, 1) + ' ميغابايت';
+  return fmtN(n / 1073741824, 1) + ' غيغابايت';
+}
+function safeP(f) { try { return Promise.resolve(f()); } catch (e) { return Promise.reject(e); } }
+function storageSec() {
+  var st = null; try { st = navigator.storage || null; } catch (e) {}
+  var body = h('div', { class: 'grp pad sm', style: 'display:grid;gap:10px' }, h('div', { class: 'mu' }, 'نفحص التخزين…'));
+  var sec = h('div', { class: 'sec', id: 'stor' }, h('h2', {}, 'حالة التخزين'), body);
+  function paint(per, est) {
+    var rows = [];
+    if (per === true) rows.push(h('div', { class: 'stt ok' }, h('i', {}, '✅'), h('div', {}, h('b', {}, 'التخزين الدائم: شغّال'), 'المتصفح ما يمسح بياناتك من نفسه حتى لو ذاكرة الجهاز قلّت. (لو مسحتها انت من إعدادات المتصفح تنمسح.)')));
+    else if (per === false) rows.push(h('div', { class: 'stt no' }, h('i', {}, '⚠️'), h('div', {}, h('b', {}, 'التخزين الدائم: مو شغّال'), 'بياناتك محفوظة، بس المتصفح يكدر يمسحها إذا ذاكرة الجهاز قلّت. نصّب التطبيق على الشاشة الرئيسية واستعمله — يصير المتصفح يوافق أسهل.')));
+    else rows.push(h('div', { class: 'stt' }, h('i', {}, 'ℹ️'), h('div', {}, h('b', {}, 'التخزين الدائم: غير معروف'), 'متصفحك ما يخبرنا إذا تخزينك دائم أو لا.')));
+    if (est && typeof est.usage === 'number' && isFinite(est.usage) && est.usage >= 0) rows.push(h('div', { id: 'storuse' }, 'المستخدم هسه: ' + fmtBytes(est.usage) + (typeof est.quota === 'number' && isFinite(est.quota) && est.quota > 0 ? ' من مساحة مسموحة حوالي ' + fmtBytes(est.quota) : '') + ' (أرقام تقريبية من المتصفح).'));
+    if (per === false && st && typeof st.persist === 'function') rows.push(h('button', { class: 'btn f', id: 'storask', onclick: ask }, 'اطلب تثبيت التخزين'));
+    rows.push(h('div', { class: 'mu' }, 'التخزين الدائم يحميك من مسح المتصفح التلقائي فقط، مو من ضياع الجهاز أو حذف التطبيق. النسخة الاحتياطية هي أمانك الحقيقي.'));
+    body.replaceChildren.apply(body, rows);
+  }
+  function refresh() {
+    if (!st) { paint(null, null); return Promise.resolve(); }
+    return Promise.all([
+      safeP(function () { return st.persisted(); }).then(function (v) { return v === true || v === false ? v : null; }, function () { return null; }),
+      safeP(function () { return st.estimate(); }).then(function (e) { return e && typeof e === 'object' ? e : null; }, function () { return null; })
+    ]).then(function (r) { paint(r[0], r[1]); });
+  }
+  function ask(ev) {
+    var b = ev && ev.currentTarget; if (b) b.disabled = true;
+    safeP(function () { return st.persist(); }).then(function (ok) {
+      if (ok === true) toast('انمنح التخزين الدائم ✅', 'ok'); else toast('المتصفح ما وافق هسه — عادي. جرّب بعد ما تنصّب التطبيق وتستعمله كم يوم.');
+    }, function () { toast('ما كدرنا نطلب التثبيت من هذا المتصفح'); }).then(refresh);
+  }
+  refresh();
+  return sec;
+}
+
+// ---------- نقل الإعدادات عند الدمج بتطبيق فاضي (مثلاً أول مرة على موقع جديد) ----------
+function cleanSettings(src) {
+  var o = {}, v;
+  if (!src || typeof src !== 'object' || Array.isArray(src)) return o;
+  if (src.unit === 'kg' || src.unit === 'lb') o.unit = src.unit;
+  if (src.theme === 'light' || src.theme === 'dark') o.theme = src.theme;
+  v = src.rest; if (typeof v === 'number' && v % 1 === 0 && v >= 10 && v <= 900) o.rest = v;
+  v = src.inc; if (typeof v === 'number' && v > 0 && v <= 50) o.inc = v;
+  ['autoRest', 'coach', 'vibrate', 'wake'].forEach(function (k) { if (typeof src[k] === 'boolean') o[k] = src[k]; });
+  v = src.name; if (typeof v === 'string' && v.trim() && v.trim().length <= 24) o.name = v.trim();
+  v = src.goal; if (typeof v === 'number' && v % 1 === 0 && v >= 1 && v <= 7) o.goal = v;
+  if (Array.isArray(src.freeze)) { v = src.freeze.filter(function (k, i, a) { return typeof k === 'string' && YMD_RE.test(k) && a.indexOf(k) === i; }).slice(0, 300); if (v.length) o.freeze = v; }
+  v = src.volLo; if (typeof v === 'number' && v % 1 === 0 && v >= 1 && v <= 60) o.volLo = v;
+  v = src.volHi; if (typeof v === 'number' && v % 1 === 0 && v >= 1 && v <= 60) o.volHi = v;
+  if (o.volLo != null && o.volHi != null && o.volHi < o.volLo) { delete o.volLo; delete o.volHi; } else if ((o.volLo != null) !== (o.volHi != null)) { delete o.volLo; delete o.volHi; }
+  return o;
+}
+function setIsDefault(k) { var c = S.set[k], d = DEF[k]; if (k === 'freeze') return !Array.isArray(c) || !c.length; return c == null || c === d; }
+// ما نغيّر أي إعداد غيّره المستخدم: ناخذ من النسخة فقط الإعدادات اللي بعدها على قيمتها الأصلية.
+function adoptSettings(src) {
+  var c = cleanSettings(src), n = 0;
+  Object.keys(c).forEach(function (k) { if (setIsDefault(k) && JSON.stringify(c[k]) !== JSON.stringify(S.set[k])) { S.set[k] = c[k]; n++; } });
+  return n ? saveSet().then(function () { return n; }) : Promise.resolve(0);
+}
+function localIsEmpty() { return !S.ex.length && !S.prog.length && !S.ses.length && !S.body.length; }
+
 PAGES.more = function () {
   var link = function (to, t, sub) { return h('div', { class: 'it', onclick: function () { go(to); } }, h('div', { class: 'g' }, h('div', { class: 'b' }, t), h('div', { class: 'mu sm' }, sub)), ic('fwd', 'ch')); };
   return h('div', { class: 'page' }, title('المزيد'), installCard(), h('div', { class: 'grp' }, link('library', 'مكتبة التمارين', S.ex.filter(function (e) { return !e.archived; }).length + ' تمرين'), toolLink('🧮 حاسبة الأقراص', 'شنو تحط على كل جهة من البار', function () { plateCalc(null); }), toolLink('⚖️ جسمك', 'وزن وقياسات وصور تقدّم', function () { go('body'); }), toolLink('📅 تقرير الشهر', 'ملخص شهرك مع بطاقة تشاركها', function () { go('report'); }), toolLink('🎯 تحديات الشهر', challengeSub(), function () { go('challenges'); }), link('stickers', 'ملصقاتي ورتبتك', stickerCount() + ' ملصق مفتوح'), link('history', 'سجل التمارين', done().length + ' تمرين منتهٍ'), link('settings', 'الإعدادات', 'الوحدات، المؤقت، النسخ الاحتياطي')));
@@ -2476,18 +2622,19 @@ PAGES.settings = function () {
   root.appendChild(h('div', { class: 'top' }, h('div', { class: 'row' }, backBtn('more'), h('h1', {}, 'الإعدادات'))));
   root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'التمرين'), h('div', { class: 'grp pad' }, field('اسمك أو لقبك (للتحية)', nameIn), goalField(), field('وحدة الوزن (يُخزَّن بالكيلوغرام ويُحوَّل للعرض)', unitSeg), field('الراحة الافتراضية (ثانية)', rest), field('المظهر', themeSeg)), h('div', { class: 'grp', style: 'margin-top:10px' }, chk('تشغيل مؤقت الراحة تلقائياً بعد كل مجموعة', 'autoRest'), chk('اهتزاز عند انتهاء الراحة وإكمال المجموعة', 'vibrate'), chk(wakeSupported() ? 'إبقاء الشاشة شغّالة أثناء التمرين (ما تنطفي)' : 'إبقاء الشاشة شغّالة (متصفحك ما يدعمها)', 'wake'))));
   root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'المدرّب (اقتراحات التدرّج)'), h('p', { class: 'mu sm', style: 'margin-bottom:8px' }, 'قواعد محلية على مجموعاتك المسجلة. اختياري، لا يغيّر برنامجك أبداً، ولا يعرف حالتك. توقف إذا شعرت بألم.'), progHelp(), h('div', { class: 'grp' }, chk('إظهار اقتراحات المدرّب', 'coach'), h('div', { class: 'pad', style: 'border-top:1px solid var(--ln)' }, field('خطوة زيادة الوزن الافتراضية (' + UL() + ')', inc)))));
-  var imp = h('input', { type: 'file', accept: '.json,application/json', style: 'display:none', onchange: function (ev) { importFile(ev.target.files[0]); ev.target.value = ''; } });
+  var imp = h('input', { type: 'file', accept: '.json,application/json,text/plain', style: 'display:none', onchange: function (ev) { importFile(ev.target.files[0]); ev.target.value = ''; } });
   root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'بياناتك على هذا الجهاز'), h('div', { class: 'warn', style: 'margin-bottom:10px' }, 'بياناتك محفوظة داخل هذا المتصفح فقط. مسح بيانات Chrome أو نقل الملف قد يحذفها. صدّر نسخة احتياطية باستمرار واحفظها بمكان آخر (Telegram، Drive، كمبيوتر).'),
-    h('div', { class: 'grp pad' }, h('div', { class: 'row wrap' }, h('button', { class: 'btn pri g', onclick: exportAsk }, 'تصدير نسخة احتياطية'), h('button', { class: 'btn g', onclick: function () { imp.click(); } }, 'استيراد نسخة'), imp), h('button', { class: 'btn f', style: 'margin-top:10px', onclick: seedLib }, 'إضافة تمارين جاهزة'),
+    h('div', { class: 'grp pad' }, h('div', { class: 'row wrap' }, h('button', { class: 'btn pri g', onclick: exportAsk }, 'تصدير نسخة احتياطية'), h('button', { class: 'btn g', onclick: function () { imp.click(); } }, 'استيراد نسخة'), imp), shareRow(), h('button', { class: 'btn f', style: 'margin-top:10px', onclick: seedLib }, 'إضافة تمارين جاهزة'),
       h('div', { class: 'mu sm', style: 'margin-top:12px' }, S.ex.length + ' تمرين · ' + S.prog.length + ' برنامج · ' + done().length + ' تمرين منتهٍ' + (S.body.length ? ' · ' + S.body.length + ' تسجيل جسم' : '') + ' · التخزين: ' + (Store.mode === 'idb' ? 'قاعدة بيانات المتصفح' : Store.mode === 'ls' ? 'تخزين مصغّر' : 'غير متاح')),
       h('button', { class: 'btn s dg', style: 'margin-top:14px', onclick: function () { confirmBox('حذف كل البيانات على هذا الجهاز (التمارين والبرامج والسجل وبيانات الجسم والصور)؟ صدّر نسخة احتياطية قبل ذلك.', 'حذف كل شيء', function () { Promise.all(['exercises', 'programs', 'sessions', 'images', 'body', 'photos'].map(function (s) { return Store.clear(s); })).then(function () { S.ex = []; S.prog = []; S.ses = []; S.img = {}; S.body = []; S.photos = []; S.photosLoaded = false; stopRest(); toast('تم حذف كل البيانات'); go('dashboard'); route(); }); }); } }, 'حذف كل البيانات'))));
-  var lb = S.set.lastBackup, swOn = navigator.serviceWorker && navigator.serviceWorker.controller;
+  var swOn = navigator.serviceWorker && navigator.serviceWorker.controller;
   root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'كيف تحمي بياناتك'), h('div', { class: 'grp pad sm', style: 'display:grid;gap:10px' },
     h('div', {}, 'بياناتك محفوظة داخل هذا المتصفح وهذا العنوان فقط. فتح التطبيق من متصفح آخر أو من عنوان مختلف يعني مساحة بيانات منفصلة وفارغة.'),
     h('div', {}, 'مسح بيانات المتصفح أو حذف التطبيق يمسح السجل. صدّر نسخة احتياطية قبل أي تحديث أو تغيير في طريقة التثبيت.'),
-    h('div', { class: 'b' }, 'آخر نسخة احتياطية: ' + (lb ? new Date(lb).toLocaleDateString(LOC, { day: 'numeric', month: 'long', year: 'numeric' }) : 'لم تُصدَّر بعد')))));
+    h('div', { class: 'b', id: 'lastbk' }, bkTxt()))));
+  root.appendChild(storageSec());
   root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'عن التطبيق'), h('div', { style: 'padding:14px 0 8px' }, brand()),
-    h('p', { class: 'mu sm' }, 'الإصدار 3.2.0 — يعمل بدون إنترنت. لا حساب ولا خادم ولا تحليلات، ولا يُرسل أي شيء لأي مكان. الحجم = مجموع (الوزن × التكرارات) لمجموعات العمل المكتملة في تمارين الوزن + التكرارات فقط.'),
+    h('p', { class: 'mu sm' }, 'الإصدار 3.3.0 — يعمل بدون إنترنت. لا حساب ولا خادم ولا تحليلات، ولا يُرسل أي شيء لأي مكان. الحجم = مجموع (الوزن × التكرارات) لمجموعات العمل المكتملة في تمارين الوزن + التكرارات فقط.'),
     h('p', { class: 'mu sm', style: 'margin-top:6px' }, swOn ? 'وضع التثبيت: يعمل بدون إنترنت (Service Worker مفعّل).' : 'وضع التشغيل: ملف محلي أو بدون Service Worker.')));
   return root;
 };
@@ -2496,20 +2643,12 @@ function exportData(opts) {
     download('titanlog-backup-' + ymd(Date.now()) + '.json', json); toast('تم تنزيل النسخة — احفظها بمكان آمن', 'ok'); return true;
   }).catch(function () { toast('تعذّر تجهيز النسخة، ما تغيّر شي', 'er'); return false; });
 }
-function backupBuild(withPhotos) {
-  S.set.lastBackup = Date.now(); saveSet();
+function backupBuild(withPhotos, keepStamp) {
+  var now = Date.now(); if (!keepStamp) bkStamp();
   var imgs = keys(S.img).map(function (id) { return { id: id, data: S.img[id] }; });
-  var data = { format: 'titanlog-local-backup', version: 1, app: '3.2.0', exportedAt: new Date().toISOString(), note: 'Weights are in kg.', settings: S.set, exercises: S.ex, programs: S.prog, sessions: S.ses, images: imgs, body: S.body };
+  var data = { format: 'titanlog-local-backup', version: 1, app: '3.3.0', exportedAt: new Date().toISOString(), note: 'Weights are in kg.', settings: keepStamp ? Object.assign({}, S.set, { lastBackup: now }) : S.set, exercises: S.ex, programs: S.prog, sessions: S.ses, images: imgs, body: S.body };
   if (!withPhotos) return Promise.resolve(JSON.stringify(data));
   return photosLoad().then(function () { data.photos = S.photos; return JSON.stringify(data); });
-}
-function exportAsk() {
-  if (Store.mode !== 'idb') return exportData({ photos: false });
-  photosLoad().then(function () {
-    if (!S.photos.length) return exportData({ photos: false });
-    var mb = (S.photos.reduce(function (a, p) { return a + (p.data ? p.data.length : 0) + (p.th ? p.th.length : 0); }, 0) / 1048576).toFixed(1);
-    sheet('تصدير نسخة احتياطية', h('div', {}, h('p', {}, 'عندك ' + S.photos.length + ' صورة تقدّم (حوالي ' + mb + ' ميغابايت).'), h('p', { class: 'mu sm', style: 'margin-top:8px' }, 'النسخة مع الصور أكبر حجماً، وأي شخص تشاركها وياه يشوف صورك. بدون الصور أخف وأأمن للمشاركة (وصورك الحالية ما تتأثر لما تستورد النسخة).')), function (c) { return [h('button', { class: 'btn', onclick: c }, 'إلغاء'), h('button', { class: 'btn', onclick: function () { c(); exportData({ photos: false }); } }, 'بدون الصور'), h('button', { class: 'btn pri', onclick: function () { c(); exportData({ photos: true }); } }, 'مع الصور')]; });
-  }, function () { toast('تعذّرت قراءة الصور، صدّرت النسخة بدونها', 'er'); exportData({ photos: false }); });
 }
 function importFile(f) {
   if (!f) return; if (f.size > 80 * 1024 * 1024) return toast('الملف كبير جداً (أكثر من ٨٠ ميغابايت)', 'er');
@@ -2518,7 +2657,7 @@ function importFile(f) {
     var d; try { d = JSON.parse(r.result); } catch (e) { return toast('هذا ليس ملف JSON صالحاً', 'er'); }
     var err = validateBackup(d); if (err) return sheet('نسخة غير صالحة', h('p', { class: 'mu' }, err + ' لم يتغيّر أي شيء.'), function (c) { return [h('button', { class: 'btn pri', onclick: c }, 'حسناً')]; });
     var have = { e: {}, p: {}, s: {}, b: {} }; S.body.forEach(function (x) { have.b[x.date] = 1; }); S.ex.forEach(function (x) { have.e[x.id] = 1; }); S.prog.forEach(function (x) { have.p[x.id] = 1; }); S.ses.forEach(function (x) { have.s[x.id] = 1; });
-    sheet('استيراد نسخة احتياطية', h('div', {}, h('p', {}, 'النسخة (' + (d.exportedAt ? new Date(d.exportedAt).toLocaleString(LOC) : 'تاريخ غير معروف') + ') فيها ' + d.exercises.length + ' تمرين، ' + d.programs.length + ' برنامج، ' + d.sessions.length + ' تمرين منفّذ' + (Array.isArray(d.body) && d.body.length ? '، ' + d.body.length + ' تسجيل جسم' : '') + (Array.isArray(d.photos) && d.photos.length ? '، ' + d.photos.length + ' صورة تقدّم' : '') + '.'), h('p', { class: 'mu sm', style: 'margin-top:8px' }, 'الدمج يضيف فقط ما ليس موجوداً (ولا يكتب فوق شيء). الاستبدال يمسح البيانات الحالية أولاً، ويُنزَّل تلقائياً نسخة أمان من بياناتك الحالية.')),
+    sheet('استيراد نسخة احتياطية', h('div', {}, h('p', {}, 'النسخة (' + (d.exportedAt ? new Date(d.exportedAt).toLocaleString(LOC) : 'تاريخ غير معروف') + ') فيها ' + d.exercises.length + ' تمرين، ' + d.programs.length + ' برنامج، ' + d.sessions.length + ' تمرين منفّذ' + (Array.isArray(d.body) && d.body.length ? '، ' + d.body.length + ' تسجيل جسم' : '') + (Array.isArray(d.photos) && d.photos.length ? '، ' + d.photos.length + ' صورة تقدّم' : '') + '.'), h('p', { class: 'mu sm', style: 'margin-top:8px' }, 'الدمج يضيف فقط ما ليس موجوداً (ولا يكتب فوق شيء)' + (localIsEmpty() ? ' وينقل إعداداتك (الاسم والهدف والوحدة…) لأن تطبيقك فاضي' : '') + '. الاستبدال يمسح البيانات الحالية أولاً، ويُنزَّل تلقائياً نسخة أمان من بياناتك الحالية.')),
       function (c) { return [h('button', { class: 'btn', onclick: c }, 'إلغاء'), h('button', { class: 'btn pri', onclick: function () { c(); applyImport(d, 'merge', have); } }, 'دمج'), h('button', { class: 'btn dg', onclick: function () { c(); confirmBox('استبدال كل بياناتك الحالية بهذه النسخة؟', 'استبدال', function () { exportData({ photos: true }).then(function (ok) { if (ok) applyImport(d, 'replace', have); }); }); } }, 'استبدال')]; });
   };
   r.readAsText(f);
@@ -2553,7 +2692,7 @@ function validateBackup(d) {
   return null;
 }
 function applyImport(d, mode, have) {
-  var p = Promise.resolve(), a = 0, k = 0;
+  var p = Promise.resolve(), a = 0, k = 0, fresh = mode === 'merge' && localIsEmpty(), sAd = 0;
   if (mode === 'replace') { p = Promise.all(['exercises', 'programs', 'sessions', 'images'].concat(Array.isArray(d.body) ? ['body'] : [], Array.isArray(d.photos) ? ['photos'] : []).map(function (s) { return Store.clear(s); })).then(function () { S.ex = []; S.prog = []; S.ses = []; S.img = {}; if (Array.isArray(d.body)) S.body = []; S.photos = []; S.photosLoaded = false; have = { e: {}, p: {}, s: {}, b: {} }; if (d.settings) { S.set = Object.assign({}, DEF, d.settings, { id: 'settings' }); return saveSet(); } }); }
   p.then(function () { return Array.isArray(d.photos) && d.photos.length && Store.mode === 'idb' ? photosLoad() : null; }).then(function () {
     var q = Promise.resolve();
@@ -2564,8 +2703,9 @@ function applyImport(d, mode, have) {
     (d.body || []).forEach(function (b) { if (have.b[b.date]) { k++; return; } have.b[b.date] = 1; var m = {}; BM.forEach(function (z) { if (b.m && b.m[z[0]] != null) m[z[0]] = +b.m[z[0]]; }); var rec = { id: 'b' + b.date, date: b.date, w: b.w == null ? null : +b.w, m: m, at: b.at > 0 ? b.at : Date.now() }; S.body.push(rec); a++; q = q.then(function () { return Store.put('body', rec); }); });
     var hp = {}; S.photos.forEach(function (x) { hp[x.id] = 1; });
     (d.photos || []).forEach(function (ph) { if (Store.mode !== 'idb' || hp[ph.id]) { k++; return; } hp[ph.id] = 1; var rec = { id: ph.id, date: ph.date, at: ph.at > 0 ? ph.at : Date.now(), pose: POSES[ph.pose] ? ph.pose : 'other', th: ph.th, data: ph.data }; S.photos.push(rec); a++; q = q.then(function () { return Store.put('photos', rec); }); });
+    if (fresh) q = q.then(function () { return adoptSettings(d.settings); }).then(function (n) { sAd = n; });
     return q;
-  }).then(load).then(function () { toast('تم استيراد ' + a + ' عنصر، وتخطّي ' + k + ' موجود', 'ok'); go('dashboard'); route(); }, function (e) { toast('فشل الاستيراد: ' + (e && e.message || e), 'er'); });
+  }).then(load).then(function () { toast('تم استيراد ' + a + ' عنصر، وتخطّي ' + k + ' موجود' + (sAd ? '، ونقلنا إعداداتك' : ''), 'ok'); go('dashboard'); route(); }, function (e) { toast('فشل الاستيراد: ' + (e && e.message || e), 'er'); });
 }
 
 window.addEventListener('hashchange', route);
@@ -2577,7 +2717,7 @@ function registerPWA() {
 }
 Store.open().then(load).then(function () {
   route(); registerPWA();
-  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+  try { if (navigator.storage && navigator.storage.persist) Promise.resolve(navigator.storage.persist()).catch(function () {}); } catch (e) {}
 }).catch(function (e) { $('#app').innerHTML = '<div style="padding:30px;text-align:center"><b>تعذّر تشغيل التطبيق</b><p style="color:#93a0b5">' + String(e && e.message || e).replace(/</g, '&lt;') + '</p></div>'; });
 </script>
 </body>

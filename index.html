@@ -305,6 +305,48 @@ details>summary::-webkit-details-marker{display:none}
 .rstats b{white-space:nowrap}
 .ph span{line-height:1.35;padding:5px 2px 6px}
 
+/* ===== المرحلة ٣: هدف الأسبوع، الإجازة، مستويات الملصقات، تحديات الشهر ===== */
+.lnkb{background:none;border:0;color:var(--bl);font-weight:700;font-size:.86rem;cursor:pointer;padding:8px 0;font-family:inherit;min-height:40px}
+button.tag{background:transparent;font-family:inherit;font-size:.74rem;cursor:pointer;min-height:32px;padding:0 12px}
+.goal{align-items:center;gap:14px;background:var(--s1);border-radius:18px;padding:12px 14px;box-shadow:var(--shadow);margin-bottom:8px}
+.goalp{background:var(--s1);border-radius:18px;padding:14px 16px;box-shadow:var(--shadow);margin-bottom:8px}
+.ringw{position:relative;width:84px;height:84px;flex:none}
+.ringw svg{display:block}
+.ringw .rc{position:absolute;top:0;right:0;bottom:0;left:0;display:flex;flex-direction:column;align-items:center;justify-content:center;direction:ltr;line-height:1.05}
+.ringw .rc b{font-size:1.5rem}
+.ringw .rc span{font-size:.74rem;color:var(--t2);font-weight:700}
+.gchips{display:flex;gap:6px;margin-top:10px}
+.gchips .gc{flex:1;min-height:46px;border:1.5px solid var(--ln);background:var(--s2);border-radius:12px;font-weight:700;cursor:pointer;color:var(--tx);font-size:1.05rem;font-family:inherit;padding:0}
+.gchips .gc:active{transform:scale(.94)}
+.gchips .gc.on{background:var(--bl);border-color:var(--bl);color:var(--onbl)}
+.wst{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-top:8px}
+.wc{aspect-ratio:1;border-radius:10px;display:grid;place-items:center;background:var(--s2);color:var(--t2);font-weight:700;font-size:.92rem}
+.wc.some{background:rgba(36,87,214,.14);color:var(--bl)}
+:root[data-theme=dark] .wc.some{background:rgba(91,140,255,.2)}
+.wc.met{background:var(--gold);color:#2A1D00}
+.wc.fz{background:rgba(47,166,106,.18);font-size:1rem}
+.wc.cur{box-shadow:inset 0 0 0 2px var(--bl)}
+.frow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--ln)}
+.frow:last-child{border-bottom:0}
+.tag.tr1{color:#B8742E;border-color:#B8742E}
+.tag.tr2{color:#7B8794;border-color:#98A4B1}
+.tag.tr3{color:var(--am);border-color:#E3A907}
+.tl{display:grid;gap:10px;margin-top:14px;text-align:start}
+.tr-row{display:flex;gap:10px;align-items:flex-start;opacity:.65}
+.tr-row.ok{opacity:1}
+.tr-row .tk{width:22px;flex:none;text-align:center;font-weight:700;color:var(--gn)}
+.chc{background:var(--s1);border-radius:18px;padding:14px 16px;box-shadow:var(--shadow);cursor:pointer}
+.segs{display:flex;gap:6px;margin-top:10px}
+.segs i{flex:1;height:10px;border-radius:99px;background:var(--s2);position:relative;overflow:hidden}
+.segs i u{position:absolute;top:0;bottom:0;inset-inline-start:0;background:var(--bl);text-decoration:none;border-radius:99px}
+.segs i.ok u{background:var(--gn)}
+.chl{display:flex;gap:12px;align-items:flex-start;background:var(--s1);border-radius:18px;padding:14px 16px;box-shadow:var(--shadow);margin-top:10px}
+.chl .ci{font-size:1.7rem;line-height:1.2;flex:none;width:38px;text-align:center}
+.chl.ok{box-shadow:inset 0 0 0 2px var(--gn),var(--shadow)}
+.chl .bar{margin:8px 0 6px}
+.c>.stk-i{margin:0 auto}
+.tr-row:not(.ok) .tk{color:var(--t2)}
+
 </style>
 </head>
 <body>
@@ -458,10 +500,10 @@ function weekStart(t) { var d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d
 function buzz(ms) { try { if (S.set.vibrate && navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
 
 function toast(m, kind) { var e = h('div', { class: 'toast ' + (kind || '') }, m); document.body.appendChild(e); setTimeout(function () { e.remove(); }, 2800); }
-function sheet(title, body, actions) {
+function sheet(title, body, actions, onclose) {
   var bg = h('div', { class: 'scrim', onclick: function (ev) { if (ev.target === bg) close(); } });
   var closed = false;
-  function close() { if (closed) return; closed = true; bg.classList.remove('in'); setTimeout(function () { bg.remove(); }, 260); }
+  function close() { if (closed) return; closed = true; bg.classList.remove('in'); setTimeout(function () { bg.remove(); }, 260); if (onclose) { try { onclose(); } catch (e) { console.error(e); } } }
   var box = h('div', { class: 'sheet', role: 'dialog' }, h('div', { class: 'grab' }), title ? h('div', { class: 'row sb', style: 'margin-bottom:14px' }, h('h2', {}, title), h('button', { class: 'ib', onclick: close, 'aria-label': 'إغلاق' }, '✕')) : null, body, actions ? h('div', { class: 'acts' }, actions(close)) : null);
   bg.appendChild(box); document.body.appendChild(bg);
   requestAnimationFrame(function () { requestAnimationFrame(function () { bg.classList.add('in'); }); });
@@ -674,7 +716,7 @@ function buildDock() {
     item('training', 'برامجي', 'list', p === 'training'),
     item('workout', 'يلا', 'dumb', p === 'workout' || p === 'session', !!a),
     item('progress', 'التقدم', 'chart', p === 'progress' || p === 'history' || p === 'body' || p === 'report'),
-    item('more', 'المزيد', 'more', p === 'more' || p === 'library' || p === 'settings')));
+    item('more', 'المزيد', 'more', p === 'more' || p === 'library' || p === 'settings' || p === 'stickers' || p === 'challenges')));
 }
 var PAGES = {};
 function route() {
@@ -762,8 +804,9 @@ PAGES.dashboard = function () {
       (function (j) { var day = new Date(ws + j * 864e5), key = ymd(day), n = dd.some(function (s) { return ymd(s.completedAt) === key; }), isT = key === ymd(Date.now()); cells.push(h('div', { class: 'd' + (isT ? ' t' : '') }, h('span', { class: 'mk' + (n ? ' on' : '') }), h('span', {}, WDS[((day.getDay() + 6) % 7) + 1]))); })(j);
     }
     var wk = dd.filter(function (s) { return s.completedAt >= ws; }), st = wk.map(sesStats), vol = st.reduce(function (x, y) { return x + y.vol; }, 0), wsets = st.reduce(function (x, y) { return x + y.work; }, 0);
-    root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'أسبوعك'), h('div', { class: 'wk' }, cells), wk.length ? h('div', { class: 'mu sm' }, wk.length + ' تمارين · ' + wsets + ' مجموعة عمل' + (vol ? ' · الحجم ' + fmtW(vol) : '')) : h('div', { class: 'mu sm' }, 'ماكو تمرين هذا الأسبوع بعد… الحديد يسأل عنك 😏')));
+    root.appendChild(h('div', { class: 'sec' }, h('div', { class: 'sec-h' }, h('h2', {}, 'أسبوعك'), h('button', { class: 'lnkb', onclick: streakSheet }, '🌴 السلسلة والإجازة')), goalBlock(), h('div', { class: 'wk' }, cells), wk.length ? h('div', { class: 'mu sm' }, wk.length + ' تمارين · ' + wsets + ' مجموعة عمل' + (vol ? ' · الحجم ' + fmtW(vol) : '')) : h('div', { class: 'mu sm' }, 'ماكو تمرين هذا الأسبوع بعد… الحديد يسأل عنك 😏')));
   }
+  if (dd.length) root.appendChild(challengeCard());
   var recent = dd.slice().sort(function (x, y) { return y.completedAt - x.completedAt; }).slice(0, 3);
   if (recent.length) root.appendChild(h('div', { class: 'sec' }, h('div', { class: 'sec-h' }, h('h2', {}, 'آخر تمارينك'), h('a', { href: '#/history', class: 'sm b', style: 'text-decoration:none' }, 'كل السجل')), recent.map(entryRow)));
   root.appendChild(stickerStrip());
@@ -856,30 +899,45 @@ var GL = {
   moon: '<path d="M32 6a18 18 0 1 0 10 28A15 15 0 0 1 32 6z"/>',
   shield: '<path d="M24 4l16 6v12c0 10-7 17-16 22C15 39 8 32 8 22V10z"/>',
   palm: '<path d="M22 44c1-10 1-18 2-24h2c0 6 0 14 1 24z"/><path d="M24 18C18 10 10 12 6 18c6-3 12-1 18 0zM24 18C30 10 38 12 42 18c-6-3-12-1-18 0zM24 16C22 8 16 5 11 6c6 2 10 6 13 10zM24 16c2-8 8-11 13-10-6 2-10 6-13 10z"/>',
-  lock: '<rect x="10" y="21" width="28" height="21" rx="4"/><path d="M16 21v-6a8 8 0 0 1 16 0v6" fill="none" stroke="#fff" stroke-width="4"/>'
+  lock: '<rect x="10" y="21" width="28" height="21" rx="4"/><path d="M16 21v-6a8 8 0 0 1 16 0v6" fill="none" stroke="#fff" stroke-width="4"/>',
+  scale: '<rect x="7" y="8" width="34" height="32" rx="7" fill="none" stroke="#fff" stroke-width="4"/><path d="M14 25a10 10 0 0 1 20 0" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/><path d="M24 25l5-6" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/><circle cx="24" cy="25" r="2.4"/>',
+  target: '<circle cx="24" cy="24" r="18" fill="none" stroke="#fff" stroke-width="4"/><circle cx="24" cy="24" r="10" fill="none" stroke="#fff" stroke-width="4"/><circle cx="24" cy="24" r="3.6"/>'
 };
-function stickerSvg(def, locked, size) {
+function starPts(cx, cy, r) { var p = [], i; for (i = 0; i < 10; i++) { var a = -Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? r * 0.45 : r; p.push((cx + q * Math.cos(a)).toFixed(1) + ',' + (cy + q * Math.sin(a)).toFixed(1)); } return p.join(' '); }
+/* tier: 0 = ملصق عادي، 1/2/3 = برونزي/فضي/ذهبي (الحلقة الملوّنة + عدد النجوم، مو اللون بس) */
+function stickerSvg(def, locked, size, tier) {
+  var t = (def.tiered && !locked) ? (tier != null ? tier : def.tier) : 0, ring = t ? TIERC[t] : null;
   var col = locked ? '#CFC8B8' : def.c, g = locked ? '<text x="24" y="36" text-anchor="middle" font-size="34" font-weight="800" fill="#fff" font-family="sans-serif">?</text>' : GL[def.g];
-  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="' + size + '" height="' + size + '"><circle cx="48" cy="48" r="46" fill="#fff"/><circle cx="48" cy="48" r="39" fill="' + col + '"/><circle cx="48" cy="48" r="34" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.6" stroke-dasharray="3 4"/><g transform="translate(24 24)" fill="#fff">' + g + '</g></svg>';
+  var outer = ring ? '<circle cx="48" cy="48" r="45" fill="#fff" stroke="' + ring + '" stroke-width="5"/>' : '<circle cx="48" cy="48" r="46" fill="#fff"/>', badge = '', i;
+  if (t) { var w = 12 + t * 14; badge = '<rect x="' + (48 - w / 2) + '" y="76" width="' + w + '" height="17" rx="8.5" fill="' + ring + '" stroke="#fff" stroke-width="2"/>'; for (i = 0; i < t; i++) badge += '<polygon points="' + starPts(48 + (i - (t - 1) / 2) * 13, 84.6, 5.2) + '" fill="#fff"/>'; }
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="' + size + '" height="' + size + '"' + (t ? ' data-tier="' + t + '"' : '') + '>' + outer + '<circle cx="48" cy="48" r="39" fill="' + col + '"/><circle cx="48" cy="48" r="34" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.6" stroke-dasharray="3 4"/><g transform="translate(24 24)" fill="#fff">' + g + '</g>' + badge + '</svg>';
 }
-function stickerEl(def, locked, size, rot) { var d = h('div', { class: 'stk-i' + (locked ? ' lk' : ''), style: 'width:' + size + 'px;height:' + size + 'px;--r:' + (rot || 0) + 'deg' }); d.innerHTML = stickerSvg(def, locked, size); return d; }
+function stickerEl(def, locked, size, rot, tier) { var d = h('div', { class: 'stk-i' + (locked ? ' lk' : ''), style: 'width:' + size + 'px;height:' + size + 'px;--r:' + (rot || 0) + 'deg' }); d.innerHTML = stickerSvg(def, locked, size, tier); return d; }
 var LEGS = { quadriceps: 1, hamstrings: 1, glutes: 1, calves: 1 };
-function hasAnyPR() {
-  var pe = perExercise(), ids = keys(pe);
-  for (var i = 0; i < ids.length; i++) { var g = pe[ids[i]]; if (g.tracking !== 'weight_reps') continue; var mx = 0; for (var j = 0; j < g.ss.length; j++) { var t = metrics('weight_reps', g.ss[j].sets).top; if (j > 0 && t > mx + 1e-4) return true; if (t > mx) mx = t; } }
-  return false;
+/* ملصق بثلاث مستويات: th = حدود المستويات، names = اسم كل مستوى، desc(i) = شرط المستوى i */
+function fam(id, c, g, th, names, desc, cur, sc, u) {
+  var tier = 0; th.forEach(function (x, i) { if (cur >= x) tier = i + 1; });
+  var nx = tier < th.length ? th[tier] : null;
+  return { id: id, tiered: true, tier: tier, th: th, names: names, desc: desc, t: names[Math.max(0, tier - 1)], d: desc(Math.min(tier + 1, th.length)), c: c, g: g, e: tier >= 1, cur: cur, p: nx ? [Math.min(cur, nx), nx] : null, sc: sc || 0, u: u || '' };
 }
-function computeStickers() {
-  var dd = done(), n = dd.length, vol = 0, perWeek = {}, morning = false, night = false, fri = false, legSets = 0;
+function progNode(d) {
+  if (!d.p) return null;
+  var f = function (v) { return d.sc ? fmtN(v / d.sc, 1) : fmtN(v, 0); };
+  return [h('span', { class: 'ltr' }, f(d.p[0]) + ' / ' + f(d.p[1])), d.u ? ' ' + d.u : ''];
+}
+function tierTag(k) { return h('span', { class: 'tag tr' + k }, '★'.repeat(k) + ' ' + TIERN[k]); }
+function computeStickers(cm) {
+  var dd = done(), n = dd.length, vol = 0, perWeek = {}, morning = false, night = false, fri = false, legSets = 0, maxWeek = 0;
   dd.forEach(function (s) {
     vol += sesStats(s).vol; var w = weekStart(s.completedAt); perWeek[w] = (perWeek[w] || 0) + 1;
     var hr = new Date(s.startedAt).getHours(); if (hr < 8) morning = true; if (hr >= 22) night = true;
     if (new Date(s.completedAt).getDay() === 5) fri = true;
     s.exercises.forEach(function (e) { if (LEGS[e.muscle]) e.sets.forEach(function (t) { if (t.status === 'completed' && t.type !== 'warmup') legSets++; }); });
   });
-  var wk = keys(perWeek).map(Number).sort(function (a, b) { return a - b; }), maxWeek = 0, run3 = false, run = 0;
-  wk.forEach(function (w, i) { maxWeek = Math.max(maxWeek, perWeek[w]); var ok = perWeek[w] >= 2; if (ok && i > 0 && perWeek[wk[i - 1]] >= 2 && Math.round((w - wk[i - 1]) / 864e5) === 7) run++; else run = ok ? 1 : 0; if (run >= 3) run3 = true; });
-  var pr = hasAnyPR(), cnt = function (goal) { return [Math.min(n, goal), goal]; };
+  keys(perWeek).forEach(function (w) { maxWeek = Math.max(maxWeek, perWeek[w]); });
+  var palm = bestRun(2), prN = prEvents().length, bodyN = (S.body || []).filter(function (b) { return b && b.w != null; }).length, chN = 0;
+  (cm || challengeMonths()).forEach(function (mo) { mo.list.forEach(function (c) { if (c.done) chN++; }); });
+  var cnt = function (goal) { return [Math.min(n, goal), goal]; }, TV = [10000, 50000, 150000];
   return [
     { id: 'first', t: 'أول خطوة', d: 'خلّص أول تمرين لك', c: '#2457D6', g: 'star', e: n >= 1, p: cnt(1) },
     { id: 's5', t: 'مواظب', d: 'خلّص ٥ تمارين', c: '#2FA66A', g: 'dumb', e: n >= 5, p: cnt(5) },
@@ -888,31 +946,37 @@ function computeStickers() {
     { id: 's50', t: 'أسطورة', d: 'خلّص ٥٠ تمرين', c: '#D99410', g: 'trophy', e: n >= 50, p: cnt(50) },
     { id: 's100', t: 'ملك الحديد', d: 'خلّص ١٠٠ تمرين', c: '#C4322F', g: 'crown', e: n >= 100, p: cnt(100) },
     { id: 'w3', t: 'أسبوع ناري', d: '٣ تمارين خلال أسبوع واحد', c: '#E4572E', g: 'flame', e: maxWeek >= 3, p: [Math.min(maxWeek, 3), 3] },
-    { id: 'palm', t: 'نخلة الثبات', d: '٣ أسابيع متتالية، بكل أسبوع تمرينين أو أكثر', c: '#4F8F2F', g: 'palm', e: run3, p: null },
-    { id: 'pr', t: 'كسّار الأرقام', d: 'اكسر رقمك القياسي بتمرين وزن', c: '#E0A400', g: 'medal', e: pr, p: null },
-    { id: 'vol', t: 'عشرة طن', d: 'مجموع الأوزان اللي رفعتها يوصل ١٠ طن', c: '#14808F', g: 'plate', e: vol >= 10000, p: [Math.min(Math.round(vol), 10000), 10000], u: 'كغم' },
-    { id: 'legs', t: 'ملك الأرجل', d: '٣٠ مجموعة عمل للأرجل', c: '#0E9AA7', g: 'shield', e: legSets >= 30, p: [Math.min(legSets, 30), 30], u: 'مجموعة' },
+    fam('palm', '#4F8F2F', 'palm', [3, 8, 16], ['نخلة الثبات', 'نخلة باسقة', 'بستان النخيل'], function (i) { return weeksTxt([3, 8, 16][i - 1]) + ' متتالية، بكل أسبوع تمرينين أو أكثر'; }, palm, 0, 'أسبوع'),
+    fam('pr', '#E0A400', 'medal', [1, 10, 30], ['كسّار الأرقام', 'صائد الأرقام', 'محطّم الأرقام'], function (i) { return i === 1 ? 'اكسر رقمك القياسي بتمرين وزن' : 'اكسر ' + [1, 10, 30][i - 1] + ' رقم قياسي بتمارين الوزن'; }, prN, 0, 'رقم'),
+    fam('vol', '#14808F', 'plate', TV, ['عشرة طن', 'خمسين طن', 'مصنع حديد'], function (i) { return 'مجموع الأوزان اللي رفعتها يوصل ' + fmtN(TV[i - 1] / 1000, 0) + ' طن'; }, vol, 1000, 'طن'),
+    fam('legs', '#0E9AA7', 'shield', [30, 100, 300], ['ملك الأرجل', 'ما يهاب يوم الرجل', 'جبل الأرجل'], function (i) { return 'خلّص ' + [30, 100, 300][i - 1] + ' مجموعة عمل للأرجل'; }, legSets, 0, 'مجموعة'),
+    fam('body', '#3D8EB9', 'scale', [5, 20, 60], ['ميزان الصدق', 'صاحب الميزان', 'ما يخاف الميزان'], function (i) { return 'سجّل وزنك بـ ' + dayTxt([5, 20, 60][i - 1]); }, bodyN, 0, 'يوم'),
+    fam('chal', '#C2185B', 'target', [3, 12, 30], ['قبلت التحدي', 'ما يرد تحدي', 'بطل التحديات'], function (i) { return 'أنجز ' + arN([3, 12, 30][i - 1], 'تحدي', 'تحديين', 'تحديات', 'تحدياً') + ' من تحديات الشهر'; }, chN, 0, 'تحدي'),
     { id: 'am', t: 'طير الصبح', d: 'ابدأ تمرين قبل الساعة ٨ الصبح', c: '#F08A24', g: 'sun', e: morning, p: null },
     { id: 'pm', t: 'بومة الجيم', d: 'ابدأ تمرين بعد الساعة ١٠ بالليل', c: '#37406B', g: 'moon', e: night, p: null },
     { id: 'fri', t: 'جمعة الوحوش', d: 'تمرين يوم الجمعة، وانت قايم من الفطور 😄', c: '#2E7D5B', g: 'flame', e: fri, p: null },
     { id: 'bk', t: 'حارس البيانات', d: 'صدّر نسخة احتياطية', c: '#5B6475', g: 'lock', e: !!S.set.lastBackup, p: null }
   ];
 }
-function earnedIds() { return computeStickers().filter(function (x) { return x.e; }).map(function (x) { return x.id; }); }
+/* معرّفات كل شي انفتح: الملصق العادي = id، مستويات الملصق = id#1 و id#2.. ، التحدي المنجز = c:الشهر:id */
+function earnedIds() {
+  var out = [], cm = challengeMonths();
+  computeStickers(cm).forEach(function (d) { if (d.tiered) { for (var i = 1; i <= d.tier; i++) out.push(d.id + '#' + i); } else if (d.e) out.push(d.id); });
+  cm.forEach(function (mo) { mo.list.forEach(function (c) { if (c.done) out.push('c:' + c.uid); }); });
+  return out;
+}
+function stickerCount() { return computeStickers().filter(function (x) { return x.e; }).length; }
 var RANKS = [[0, 'ضيف جديد'], [1, 'بدأت الشغل'], [5, 'مواظب'], [10, 'حديد وياك'], [25, 'وحش'], [50, 'أسطورة'], [100, 'ملك الحديد']];
 function rankInfo(n) {
   var i = 0; RANKS.forEach(function (r, k) { if (n >= r[0]) i = k; });
   var nx = RANKS[i + 1]; return { t: RANKS[i][1], next: nx ? nx[1] : null, left: nx ? nx[0] - n : 0, pct: nx ? (n - RANKS[i][0]) / (nx[0] - RANKS[i][0]) : 1 };
 }
-function weekStreak() {
-  var w = {}; done().forEach(function (s) { w[weekStart(s.completedAt)] = 1; });
-  var cur = weekStart(Date.now()); if (!w[cur]) cur = weekStart(cur - 864e5);
-  var c = 0; while (w[cur]) { c++; cur = weekStart(cur - 864e5); }
-  return c;
-}
+function weekStreak() { return streakInfo().n; }
 function rankCard() {
-  var n = done().length, r = rankInfo(n), st = weekStreak();
-  return h('div', { class: 'rank' }, h('div', { class: 'row sb' }, h('div', {}, h('div', { class: 'mu xs' }, 'رتبتك'), h('div', { class: 'b', style: 'font-size:1.25rem' }, r.t)), st >= 2 ? h('span', { class: 'tag yl' }, '🔥 ' + st + ' أسابيع متواصلة') : null),
+  var n = done().length, r = rankInfo(n), si = streakInfo(), tags = [];
+  if (si.n >= 2) tags.push(h('button', { class: 'tag yl', onclick: streakSheet }, '🔥 ' + weeksTxt(si.n) + ' متواصلة'));
+  if (si.curFrozen) tags.push(h('button', { class: 'tag gn', onclick: streakSheet }, '🌴 أسبوع إجازة'));
+  return h('div', { class: 'rank' }, h('div', { class: 'row sb' }, h('div', {}, h('div', { class: 'mu xs' }, 'رتبتك'), h('div', { class: 'b', style: 'font-size:1.25rem' }, r.t)), tags.length ? h('div', { class: 'row wrap', style: 'gap:6px;justify-content:flex-end' }, tags) : null),
     h('div', { class: 'bar' }, h('i', { style: 'width:' + Math.round(r.pct * 100) + '%' })),
     h('div', { class: 'mu sm' }, r.next ? 'باقي ' + r.left + ' تمارين وتصير «' + r.next + '»' : 'وصلت القمة! ملك الحديد 👑'));
 }
@@ -923,15 +987,27 @@ function stickerStrip() {
     got.length ? null : h('div', { class: 'mu sm', style: 'margin-top:6px' }, 'أول تمرين تخلصه يفتح لك أول ملصق 🎁'));
 }
 PAGES.stickers = function () {
-  var all = computeStickers(), got = all.filter(function (x) { return x.e; }).length;
+  var all = computeStickers(), got = all.filter(function (x) { return x.e; }).length, anyTier = all.some(function (d) { return d.tiered; });
   var grid = h('div', { class: 'stk-grid' }, all.map(function (d, i) {
-    return h('button', { class: 'stk-c', onclick: function () { stickerDetail(d); } }, stickerEl(d, !d.e, 84, (i % 3 - 1) * 5), h('div', { class: 'b sm' }, d.e ? d.t : 'مقفول'), d.e ? null : h('div', { class: 'mu xs' }, d.p ? h('span', { class: 'ltr' }, d.p[0] + ' / ' + d.p[1]) : 'اضغط لتعرف الشرط'));
+    var sub = d.e ? (d.tiered ? [tierTag(d.tier), d.p ? h('div', { class: 'mu xs' }, progNode(d)) : null] : null) : h('div', { class: 'mu xs' }, d.p ? progNode(d) : 'اضغط لتعرف الشرط');
+    return h('button', { class: 'stk-c', onclick: function () { stickerDetail(d); } }, stickerEl(d, !d.e, 84, (i % 3 - 1) * 5), h('div', { class: 'b sm' }, d.e ? d.t : 'مقفول'), sub);
   }));
-  return h('div', { class: 'page' }, h('div', { class: 'top' }, h('div', { class: 'row' }, backBtn('more'), h('h1', {}, 'ملصقاتي'))), h('div', { class: 'row' }, mascotEl(got ? 'flex' : 'hi', 64), h('div', { class: 'g' }, h('div', { class: 'b' }, got + ' من ' + all.length + ' ملصق'), h('div', { class: 'mu sm' }, 'الملصقات تنفتح من تمارينك الحقيقية فقط، ماكو غش 😉'))), grid);
+  return h('div', { class: 'page' }, h('div', { class: 'top' }, h('div', { class: 'row' }, backBtn('more'), h('h1', {}, 'ملصقاتي'))), h('div', { class: 'row' }, mascotEl(got ? 'flex' : 'hi', 64), h('div', { class: 'g' }, h('div', { class: 'b' }, got + ' من ' + all.length + ' ملصق'), h('div', { class: 'mu sm' }, 'الملصقات تنفتح من تمارينك الحقيقية فقط، ماكو غش 😉'))),
+    anyTier ? h('div', { class: 'mu sm' }, 'بعض الملصقات لها ٣ مستويات: برونزي ★ ثم فضي ★★ ثم ذهبي ★★★. اضغط على أي ملصق تشوف شروطه.') : null, grid);
 };
 function stickerDetail(d) {
-  sheet(null, h('div', { class: 'c' }, stickerEl(d, !d.e, 150, -4), h('h2', { style: 'margin-top:8px;font-size:1.3rem' }, d.e ? d.t : 'ملصق مقفول'), h('p', { class: 'mu' }, d.d), d.p && !d.e ? h('div', {}, h('div', { class: 'bar', style: 'margin:12px 0 4px' }, h('i', { style: 'width:' + Math.round(d.p[0] / d.p[1] * 100) + '%' })), h('div', { class: 'sm' }, h('span', { class: 'ltr' }, d.p[0] + ' / ' + d.p[1]), d.u ? ' ' + d.u : '')) : null,
-    d.e ? h('div', { class: 'tag gn', style: 'margin-top:10px' }, 'مفتوح ✔') : null), function (c) { return [h('button', { class: 'btn pri', onclick: c }, 'تمام')]; });
+  var body = h('div', { class: 'c' }, stickerEl(d, !d.e, 150, -4), h('h2', { style: 'margin-top:8px;font-size:1.3rem' }, d.e ? d.t : 'ملصق مقفول'));
+  if (d.tiered) {
+    if (d.e) body.appendChild(h('div', { style: 'margin-top:6px' }, tierTag(d.tier)));
+    body.appendChild(h('div', { class: 'tl' }, d.th.map(function (x, i) { var k = i + 1, ok = d.tier >= k; return h('div', { class: 'tr-row' + (ok ? ' ok' : '') }, h('span', { class: 'tk' }, ok ? '✔' : '○'), h('div', { class: 'g' }, h('div', { class: 'b sm' }, TIERN[k] + ' · ' + d.names[i]), h('div', { class: 'mu xs' }, d.desc(k)))); })));
+    if (d.p) body.appendChild(h('div', {}, h('div', { class: 'bar', style: 'margin:12px 0 4px' }, h('i', { style: 'width:' + Math.round(d.p[0] / d.p[1] * 100) + '%' })), h('div', { class: 'sm' }, 'باقي للمستوى التالي: ', progNode(d))));
+    else body.appendChild(h('div', { class: 'tag gn', style: 'margin-top:10px' }, 'وصلت للذهبي، قمة المستويات 🏆'));
+  } else {
+    body.appendChild(h('p', { class: 'mu' }, d.d));
+    if (d.p && !d.e) body.appendChild(h('div', {}, h('div', { class: 'bar', style: 'margin:12px 0 4px' }, h('i', { style: 'width:' + Math.round(d.p[0] / d.p[1] * 100) + '%' })), h('div', { class: 'sm' }, progNode(d))));
+    if (d.e) body.appendChild(h('div', { class: 'tag gn', style: 'margin-top:10px' }, 'مفتوح ✔'));
+  }
+  sheet(null, body, function (c) { return [h('button', { class: 'btn pri', onclick: c }, 'تمام')]; });
 }
 function confetti(box) {
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -939,12 +1015,18 @@ function confetti(box) {
   for (var i = 0; i < 26; i++) { var p = h('span', { class: 'cf', style: 'left:' + Math.round(Math.random() * 100) + '%;background:' + cols[i % 5] + ';animation-delay:' + (Math.random() * 0.5).toFixed(2) + 's;animation-duration:' + (1.3 + Math.random()).toFixed(2) + 's' }); box.appendChild(p); }
 }
 function celebrate(s, beforeIds) {
-  var x = sesStats(s), all = computeStickers(), fresh = all.filter(function (d) { return d.e && beforeIds.indexOf(d.id) < 0; });
+  var x = sesStats(s), cm = challengeMonths(), all = computeStickers(cm), fresh = [], chDone = [];
+  all.forEach(function (d) {
+    if (d.tiered) { var pt = 0, i; for (i = 1; i <= 3; i++) if (beforeIds.indexOf(d.id + '#' + i) >= 0) pt = i; if (d.tier > pt) fresh.push({ d: d, tier: d.tier, up: pt > 0 }); }
+    else if (d.e && beforeIds.indexOf(d.id) < 0) fresh.push({ d: d, tier: 0 });
+  });
+  cm.forEach(function (mo) { mo.list.forEach(function (c) { if (c.done && beforeIds.indexOf('c:' + c.uid) < 0) chDone.push(c); }); });
   var prs = 0; s.exercises.forEach(function (e) { e.sets.forEach(function (t) { if (t.pr && t.status === 'completed') prs++; }); });
   var box = h('div', { class: 'celeb c' }, mascotEl('flex', 120), h('h2', { style: 'font-size:1.4rem' }, 'كفو عليك! تمرينك انحفظ'),
     h('p', { class: 'mu' }, x.exDone + ' تمارين · ' + x.sets + ' مجموعة' + (x.vol ? ' · ' + fmtW(x.vol) : '') + (x.dur ? ' · ' + fmtDur(x.dur) : '')),
     prs ? h('p', { class: 'b', style: 'color:var(--am)' }, '🔥 كسرت ' + prs + (prs > 1 ? ' أرقام قياسية' : ' رقم قياسي')) : null,
-    fresh.length ? h('div', { style: 'margin-top:10px' }, h('div', { class: 'b' }, fresh.length > 1 ? 'ملصقات جديدة!' : 'ملصق جديد!'), h('div', { class: 'stk-row', style: 'justify-content:center' }, fresh.map(function (d, i) { var e = stickerEl(d, false, 84, i % 2 ? 6 : -6); e.classList.add('pop'); e.style.animationDelay = (0.15 * i) + 's'; return h('div', {}, e, h('div', { class: 'xs b' }, d.t)); }))) : null);
+    chDone.map(function (c) { return h('p', { class: 'b', style: 'color:var(--gn)' }, '🎯 أنجزت تحدي «' + c.t + '»'); }),
+    fresh.length ? h('div', { style: 'margin-top:10px' }, h('div', { class: 'b' }, fresh.length > 1 ? 'ملصقات جديدة!' : (fresh[0].up ? 'ترقية ملصق!' : 'ملصق جديد!')), h('div', { class: 'stk-row', style: 'justify-content:center' }, fresh.map(function (f, i) { var e = stickerEl(f.d, false, 84, i % 2 ? 6 : -6, f.tier); e.classList.add('pop'); e.style.animationDelay = (0.15 * i) + 's'; return h('div', {}, e, h('div', { class: 'xs b' }, f.d.tiered ? f.d.names[f.tier - 1] : f.d.t), f.d.tiered ? h('div', { class: 'xs mu' }, TIERN[f.tier]) : null); }))) : null);
   sheet(null, box, function (c) { return [h('button', { class: 'btn', onclick: c }, 'تمام'), h('button', { class: 'btn pri', onclick: function () { shareCard(s); } }, 'شارك تمرينك 📸')]; });
   confetti(box); buzz([20, 60, 20]);
 }
@@ -1638,9 +1720,210 @@ PAGES.report = function (args) {
   }
   draw(); return root;
 };
+/* ===== المرحلة ٣: هدف الأسبوع + إجازة السلسلة + تحديات الشهر (كلها محسوبة من سجلّك الحقيقي) ===== */
+var TIERN = ['', 'برونزي', 'فضي', 'ذهبي'], TIERC = ['', '#B8742E', '#98A4B1', '#E3A907'], YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+function dayTxt(n) { return arN(n, 'يوم', 'يومين', 'أيام', 'يوم'); }
+function weeksTxt(n) { return arN(n, 'أسبوع', 'أسبوعين', 'أسابيع', 'أسبوعاً'); }
+function goalVal() { var g = Number(S.set.goal); return (g >= 1 && g <= 7 && g % 1 === 0) ? g : 0; }
+function freezeList() { return (Array.isArray(S.set.freeze) ? S.set.freeze : []).filter(function (k, i, a) { return typeof k === 'string' && YMD_RE.test(k) && a.indexOf(k) === i; }); }
+function freezeSet() { var o = {}; freezeList().forEach(function (k) { o[k] = 1; }); return o; }
+/* مفتاح الأسبوع = تاريخ يوم السبت (بداية الأسبوع) بصيغة YYYY-MM-DD، ما يتأثر بتغيير التوقيت الصيفي */
+function wkKey(t) { return ymd(weekStart(t)); }
+function shiftWeek(k, n) { var p = k.split('-'); return ymd(new Date(+p[0], +p[1] - 1, +p[2] + 7 * n)); }
+function weekMap() {
+  var m = {};
+  done().forEach(function (s) {
+    if (!(s.completedAt > 0)) return;
+    var k = wkKey(s.completedAt), w = m[k] || (m[k] = { n: 0, d: {} }); w.n++; w.d[ymd(s.completedAt)] = 1;
+  });
+  keys(m).forEach(function (k) { m[k].days = keys(m[k].d).length; });
+  return m;
+}
+/* السلسلة = أسابيع متتالية فيها تمرين. أسبوع الإجازة يعدّي من غير ما ينحسب ومن غير ما يكسر */
+function streakInfo() {
+  var wm = weekMap(), fz = freezeSet(), cur = wkKey(Date.now()), k = cur, n = 0, used = 0, pend = 0, g = 0;
+  if (!wm[k] && !fz[k]) k = shiftWeek(k, -1);
+  while (g++ < 1500) {
+    if (wm[k]) { n++; used += pend; pend = 0; }
+    else if (fz[k]) pend++;
+    else break;
+    k = shiftWeek(k, -1);
+  }
+  return { n: n, frozen: used, curFrozen: !!fz[cur] && !wm[cur] };
+}
+/* أطول سلسلة أسابيع (فيها minN تمارين أو أكثر). الإجازة تعدّي بدون ما تنحسب */
+function bestRun(minN) {
+  var wm = weekMap(), fz = freezeSet(), ks = keys(wm).sort(), end = wkKey(Date.now()), run = 0, best = 0, g = 0, k;
+  if (!ks.length) return 0;
+  k = ks[0];
+  while (k <= end && g++ < 3000) {
+    var w = wm[k];
+    if (w && w.n >= minN) { run++; if (run > best) best = run; }
+    else if (fz[k]) { /* إجازة: ما تكسر ولا تنحسب */ }
+    else if (k !== end) run = 0;
+    k = shiftWeek(k, 1);
+  }
+  return best;
+}
+function weekRange(k) {
+  var p = k.split('-'), a = new Date(+p[0], +p[1] - 1, +p[2]), b = new Date(+p[0], +p[1] - 1, +p[2] + 6), f = function (x) { return x.toLocaleDateString(LOC, { day: 'numeric', month: 'short' }); };
+  return f(a) + ' إلى ' + f(b);
+}
+
+/* ---------- هدف الأسبوع (حلقة) ---------- */
+function setGoal(n) {
+  S.set.goal = n;
+  return saveSet().then(function () { toast(n ? 'تمام، هدفك ' + dayTxt(n) + ' بالأسبوع 🎯' : 'شلنا الهدف', 'ok'); rerender(); }, function () { toast('تعذّر الحفظ على الجهاز', 'er'); });
+}
+function ringEl(frac, col, big, small, label) {
+  var r = 34, c = 2 * Math.PI * r, f = Math.max(0, Math.min(1, frac)), s = document.createElementNS(SVGNS, 'svg');
+  s.setAttribute('viewBox', '0 0 84 84'); s.setAttribute('width', '84'); s.setAttribute('height', '84'); s.setAttribute('aria-hidden', 'true');
+  s.innerHTML = '<circle cx="42" cy="42" r="34" fill="none" stroke="var(--s2)" stroke-width="9"/>' + (f > 0 ? '<circle cx="42" cy="42" r="34" fill="none" stroke="' + col + '" stroke-width="9" stroke-linecap="round" stroke-dasharray="' + (c * f).toFixed(1) + ' ' + c.toFixed(1) + '" transform="rotate(-90 42 42)"/>' : '');
+  return h('div', { class: 'ringw', role: 'img', 'aria-label': label }, s, h('div', { class: 'rc' }, h('b', {}, big), h('span', {}, small)));
+}
+function goalChips(cur, fn) {
+  return h('div', { class: 'gchips' }, [1, 2, 3, 4, 5, 6, 7].map(function (n) { return h('button', { class: 'gc' + (n === cur ? ' on' : ''), 'aria-label': dayTxt(n) + ' بالأسبوع', onclick: function () { fn(n); } }, String(n)); }));
+}
+function goalBlock() {
+  var g = goalVal();
+  if (!g) return h('div', { class: 'goalp' }, h('div', { class: 'b' }, 'كم يوم تتمرن بالأسبوع؟'), h('div', { class: 'mu sm' }, 'اختار هدفك وتطلع لك حلقة تقدّم. تغيّره متى ما تريد.'), goalChips(0, setGoal));
+  var wm = weekMap(), k = wkKey(Date.now()), w = wm[k], days = w ? w.days : 0, fz = freezeSet(), frozen = !!fz[k] && !w, met = days >= g, left = g - days;
+  var msg = frozen ? '🌴 أسبوع إجازة. سلسلتك محمية، ارتاح.' : met ? (days > g ? '🎯 حققت هدفك وزيادة! عفية عليك' : '🎯 حققت هدفك هالأسبوع! عفية عليك') : (days ? 'باقي ' + dayTxt(left) + ' وتحقق هدفك' : 'لسا ما بدأت. باقي ' + dayTxt(left) + ' لهدفك');
+  return h('div', { class: 'goal row' }, ringEl(days / g, met ? 'var(--gold)' : 'var(--bl)', String(days), '/' + g, days + ' من ' + g + ' أيام'),
+    h('div', { class: 'g' }, h('div', { class: 'b' }, 'هدفك: ' + dayTxt(g) + ' بالأسبوع'), h('div', { class: 'mu sm' }, msg), h('button', { class: 'lnkb', onclick: goalSheet }, 'تعديل الهدف')));
+}
+/* آخر ٨ أسابيع: الرقم = أيام التمرين، ذهبي = حققت الهدف، 🌴 = إجازة (الأحدث على اليمين) */
+function weekStrip(g, n) {
+  var wm = weekMap(), fz = freezeSet(), cur = wkKey(Date.now()), cells = [], i;
+  for (i = 0; i < n; i++) {
+    var k = shiftWeek(cur, -i), w = wm[k], d = w ? w.days : 0, st = w ? (g && d >= g ? 'met' : 'some') : fz[k] ? 'fz' : 'no';
+    cells.push(h('div', { class: 'wc ' + st + (i === 0 ? ' cur' : ''), title: weekRange(k) }, st === 'fz' ? '🌴' : String(d)));
+  }
+  return h('div', {}, h('div', { class: 'wst' }, cells), h('div', { class: 'mu xs', style: 'margin-top:6px' }, 'آخر ' + n + ' أسابيع (الأحدث على اليمين). الرقم = أيام التمرين' + (g ? '، والذهبي = حققت هدفك' : '') + '، و🌴 = إجازة.'));
+}
+function goalSheet() {
+  var g = goalVal();
+  var body = h('div', {}, h('p', { class: 'mu sm' }, 'الهدف = كم يوم تتمرن بالأسبوع (الأسبوع يبدأ من السبت). اليوم اللي فيه أكثر من تمرين ينحسب مرة وحدة.'),
+    h('div', { style: 'margin-top:12px' }, goalChips(g, function (n) { close(); setGoal(n); })),
+    h('div', { class: 'b', style: 'margin:16px 0 4px' }, 'أسابيعك الأخيرة'), weekStrip(g, 8),
+    g ? h('div', { class: 'mu xs', style: 'margin-top:6px' }, 'الأسابيع الماضية تنحسب على هدفك الحالي، لو غيّرته تتغيّر ألوانها.') : null);
+  var close = sheet('هدف الأسبوع', body, function (c) { return [g ? h('button', { class: 'btn', onclick: function () { c(); setGoal(0); } }, 'بدون هدف') : null, h('button', { class: 'btn pri', onclick: c }, 'تمام')]; });
+}
+function goalField() {
+  var o = ['0', '1', '2', '3', '4', '5', '6', '7'];
+  return field('هدفك الأسبوعي (أيام التمرين)', sel(o, String(goalVal()), function (v) { S.set.goal = +v; saveSet().then(function () { toast(+v ? 'تمام، هدفك ' + dayTxt(+v) + ' بالأسبوع 🎯' : 'شلنا الهدف', 'ok'); }); }, function (v) { return v === '0' ? 'بدون هدف' : dayTxt(+v) + ' بالأسبوع'; }));
+}
+
+/* ---------- السلسلة والإجازة ---------- */
+function toggleFreeze(k) {
+  var l = freezeList(), at = l.indexOf(k); if (at >= 0) l.splice(at, 1); else l.push(k);
+  l.sort(); S.set.freeze = l;
+  return saveSet().catch(function () { toast('تعذّر الحفظ على الجهاز', 'er'); });
+}
+function streakSheet() {
+  var wrap = h('div', {}), dirty = false;
+  function draw() {
+    var si = streakInfo(), wm = weekMap(), fz = freezeSet(), cur = wkKey(Date.now()), rows = [], i;
+    for (i = 0; i < 6; i++) rows.push((function (k, i) {
+      var w = wm[k], fr = !!fz[k], nm = i === 0 ? 'هالأسبوع' : i === 1 ? 'الأسبوع الماضي' : 'قبل ' + weeksTxt(i);
+      return h('div', { class: 'frow' }, h('div', { class: 'g' }, h('div', { class: 'b' }, nm), h('div', { class: 'mu xs' }, weekRange(k))),
+        w ? h('span', { class: 'tag gn' }, '✔ ' + dayTxt(w.days)) : [fr ? h('span', { class: 'tag gn' }, '🌴 إجازة') : h('span', { class: 'mu sm' }, i === 0 ? 'لسا' : 'ماكو تمرين'),
+          h('button', { class: 'btn s', onclick: function () { toggleFreeze(k).then(function () { dirty = true; draw(); }); } }, fr ? 'إلغاء الإجازة' : '🌴 إجازة')]);
+    })(shiftWeek(cur, -i), i));
+    wrap.replaceChildren.apply(wrap, [
+      h('div', { class: 'c' }, h('div', { style: 'font-size:2rem;line-height:1.2' }, si.n ? '🔥' : '🌱'), h('div', { class: 'b', style: 'font-size:1.2rem' }, si.n ? weeksTxt(si.n) + ' متواصلة' : 'ما عندك سلسلة حالياً'),
+        si.frozen ? h('div', { class: 'mu sm' }, 'وبينها ' + arN(si.frozen, 'أسبوع إجازة', 'أسبوعين إجازة', 'أسابيع إجازة', 'أسبوع إجازة') + ' 🌴') : null),
+      si.n > 0 && !wm[cur] && !fz[cur] ? h('div', { class: 'warn', style: 'margin-top:12px' }, 'هالأسبوع لسا ما تمرنت. تمرّن مرة وحدة وتبقى سلسلتك، أو فعّل الإجازة لو ظروفك ما تساعد.') : null,
+      h('p', { class: 'mu sm', style: 'margin-top:12px' }, 'السلسلة = أسابيع متتالية فيها تمرين واحد على الأقل (الأسبوع يبدأ من السبت). أسبوع الإجازة (مرض، سفر، عيد…) ما يكسر السلسلة، بس ما ينحسب أسبوع تمرين.'),
+      h('div', { style: 'margin-top:8px' }, rows)
+    ].filter(Boolean));
+  }
+  draw();
+  sheet('سلسلتك وإجازتك', wrap, function (c) { return [h('button', { class: 'btn pri', onclick: c }, 'تمام')]; }, function () { if (dirty) setTimeout(rerender, 300); });
+}
+
+/* ---------- أرقام قياسية (من السجل نفسه، مو من علامات محفوظة) ---------- */
+function prEvents() {
+  var out = [], pe = perExercise();
+  keys(pe).forEach(function (id) {
+    var g = pe[id]; if (g.tracking !== 'weight_reps') return;
+    var mx = 0;
+    g.ss.forEach(function (s, j) { var t = metrics('weight_reps', s.sets).top; if (!(t > 0)) return; if (j > 0 && t > mx + 1e-4) out.push({ at: s.at, id: id, name: g.name }); if (t > mx) mx = t; });
+  });
+  return out.sort(function (a, b) { return a.at - b.at; });
+}
+function firstWeightAt() {
+  var f = null;
+  done().forEach(function (s) {
+    if (!(s.completedAt > 0) || (f !== null && s.completedAt >= f)) return;
+    if (s.exercises.some(function (e) { return e.tracking === 'weight_reps' && e.sets.some(function (t) { return t.status === 'completed' && isWork(t) && t.w > 0 && t.reps > 0; }); })) f = s.completedAt;
+  });
+  return f;
+}
+
+/* ---------- تحديات الشهر: الأهداف مبنية على شهرك الماضي، والتقدّم من تمارينك الحقيقية ---------- */
+var CH_PR = 2, CH_MUS = 5;
+function challengeCtx() { return { pr: prEvents(), fw: firstWeightAt(), rc: {} }; }
+function chRc(ctx, y, m) { var k = monthKey(y, m); return ctx.rc[k] || (ctx.rc[k] = reportCalc(y, m)); }
+function challengeCalc(y, m, ctx) {
+  ctx = ctx || challengeCtx();
+  var pm = m === 0 ? [y - 1, 11] : [y, m - 1], from = new Date(y, m, 1).getTime(), to = new Date(y, m + 1, 1).getTime();
+  var A = chRc(ctx, y, m), P = chRc(ctx, pm[0], pm[1]), V = volCalc(from, to), nm = keys(V.m).length;
+  var prs = ctx.pr.filter(function (e) { return e.at >= from && e.at < to; }).length;
+  var tD = Math.max(8, Math.min(20, P.days)), tS = P.sets > 0 ? Math.max(40, Math.ceil(P.sets * 1.05 / 5) * 5) : 60;
+  var list = [
+    { id: 'days', ic: '📅', t: 'الحضور', d: 'تمرّن ' + dayTxt(tD) + ' بهالشهر', cur: A.days, tgt: tD, hint: P.days ? 'شهرك الماضي: ' + dayTxt(P.days) + '، والهدف قريب منه.' : 'أول شهر، هدف بسيط نبدأ بيه.' },
+    { id: 'sets', ic: '💪', t: 'الشغل الحقيقي', d: 'خلّص ' + tS + ' مجموعة عمل (التسخين ما ينحسب)', cur: A.sets, tgt: tS, hint: P.sets > 0 ? 'شهرك الماضي: ' + P.sets + ' مجموعة، والهدف أعلى منه بشوية.' : 'أول شهر، هدف بسيط نبدأ بيه.' }
+  ];
+  if (ctx.fw !== null && ctx.fw < to) list.push({ id: 'prs', ic: '🔥', t: 'كسّار الأرقام', d: 'اكسر ' + arN(CH_PR, 'رقم قياسي', 'رقمين قياسيين', 'أرقام قياسية', 'رقم قياسي') + ' بتمارين الوزن', cur: prs, tgt: CH_PR, hint: 'الرقم القياسي = أثقل وزن سجّلته لنفس التمرين.' });
+  list.push({ id: 'mus', ic: '🧩', t: 'ما تنسى عضلة', d: 'درّب ' + CH_MUS + ' عضلات مختلفة بهالشهر', cur: nm, tgt: CH_MUS, hint: 'العضلة تنحسب لما تسجّل لها مجموعة عمل وحدة على الأقل.' });
+  list.forEach(function (c) { c.done = c.cur >= c.tgt; c.uid = monthKey(y, m) + ':' + c.id; });
+  return list;
+}
+function challengeMonths() {
+  var first = null;
+  done().forEach(function (s) { if (s.completedAt > 0 && (first === null || s.completedAt < first)) first = s.completedAt; });
+  if (first === null) return [];
+  var now = new Date(), f = new Date(first), y = f.getFullYear(), m = f.getMonth(), out = [], ctx = challengeCtx(), g = 0;
+  while ((y < now.getFullYear() || (y === now.getFullYear() && m <= now.getMonth())) && g++ < 240) {
+    out.push({ y: y, m: m, key: monthKey(y, m), list: challengeCalc(y, m, ctx) });
+    m++; if (m > 11) { m = 0; y++; }
+  }
+  return out;
+}
+function daysLeftTxt() { var n = new Date(), left = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate() - n.getDate(); return left === 0 ? 'آخر يوم بالشهر' : 'باقي ' + dayTxt(left) + ' على نهاية الشهر'; }
+function challengeSub() { var n = new Date(), c = challengeCalc(n.getFullYear(), n.getMonth()); return c.filter(function (x) { return x.done; }).length + ' من ' + c.length + ' هالشهر'; }
+function challengeCard() {
+  var n = new Date(), c = challengeCalc(n.getFullYear(), n.getMonth()), dn = c.filter(function (x) { return x.done; }).length;
+  var near = c.filter(function (x) { return !x.done; }).sort(function (a, b) { return b.cur / b.tgt - a.cur / a.tgt; })[0];
+  return h('div', { class: 'sec' }, h('div', { class: 'sec-h' }, h('h2', {}, 'تحديات الشهر'), h('a', { href: '#/challenges', class: 'sm b', style: 'text-decoration:none' }, 'التفاصيل')),
+    h('div', { class: 'chc', onclick: function () { go('challenges'); } }, h('div', { class: 'row sb' }, h('div', { class: 'b' }, '🎯 ' + dn + ' من ' + c.length), h('div', { class: 'mu xs' }, daysLeftTxt())),
+      h('div', { class: 'segs' }, c.map(function (x) { return h('i', { class: x.done ? 'ok' : '' }, h('u', { style: 'width:' + Math.round(Math.min(1, x.cur / x.tgt) * 100) + '%' })); })),
+      near ? h('div', { class: 'mu sm', style: 'margin-top:8px' }, 'الأقرب: «' + near.t + '» ', h('span', { class: 'ltr' }, near.cur + ' / ' + near.tgt)) : h('div', { class: 'b', style: 'margin-top:8px;color:var(--gn)' }, 'خلّصت كل تحديات الشهر! 🏅')));
+}
+PAGES.challenges = function () {
+  var now = new Date(), y = now.getFullYear(), m = now.getMonth(), root = h('div', { class: 'page' }), cm = challengeMonths(), cur = cm.length ? cm[cm.length - 1].list : challengeCalc(y, m);
+  var dn = cur.filter(function (c) { return c.done; }).length;
+  root.appendChild(h('div', { class: 'top' }, h('div', { class: 'row' }, backBtn('more'), h('h1', {}, 'تحديات الشهر'))));
+  root.appendChild(h('div', { class: 'today' }, h('div', { class: 'row' }, mascotEl(dn === cur.length ? 'flex' : 'hi', 72), h('div', { class: 'g' }, h('div', { class: 'k' }, monthName(y, m)), h('div', { class: 'b', style: 'font-size:1.3rem' }, dn + ' من ' + cur.length + ' تحديات'), h('div', { class: 'mu sm' }, daysLeftTxt())))));
+  root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'تحدياتك'), cur.map(function (c) {
+    var pct = Math.round(Math.min(1, c.cur / c.tgt) * 100);
+    return h('div', { class: 'chl' + (c.done ? ' ok' : '') }, h('div', { class: 'ci' }, c.ic),
+      h('div', { class: 'g' }, h('div', { class: 'row sb' }, h('div', { class: 'b' }, c.t), h('div', { class: 'row', style: 'gap:6px' }, c.done ? h('span', { class: 'tag gn' }, 'تم ✔') : null, h('span', { class: 'ltr b sm' }, c.cur + ' / ' + c.tgt))),
+        h('div', { class: 'mu sm' }, c.d), h('div', { class: 'bar' }, h('i', { style: 'width:' + pct + '%' + (c.done ? ';background:var(--gn)' : '') })), h('div', { class: 'mu xs' }, c.hint)));
+  })));
+  var past = cm.slice(0, -1).reverse().slice(0, 6);
+  if (past.length) root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'الشهور الماضية'), h('div', { class: 'grp' }, past.map(function (mo) {
+    var d2 = mo.list.filter(function (c) { return c.done; }).length, all = d2 === mo.list.length;
+    return h('div', { class: 'it', style: 'cursor:default;min-height:52px' }, h('div', { class: 'g' }, h('div', { class: 'b' }, monthName(mo.y, mo.m)), h('div', { class: 'mu sm' }, d2 + ' من ' + mo.list.length + ' تحديات')), all ? h('span', { class: 'tag yl' }, '🏅 شهر كامل') : null);
+  }))));
+  root.appendChild(h('div', { class: 'grp' }, toolLink('🎯 هدف الأسبوع', goalVal() ? dayTxt(goalVal()) + ' بالأسبوع' : 'ما حددت هدف بعد', goalSheet), toolLink('🌴 السلسلة والإجازة', 'سلسلتك الحالية وأسابيع الإجازة', streakSheet), toolLink('🏅 ملصقاتي', 'كل تحدي تنجزه يحسب لملصق «بطل التحديات»', function () { go('stickers'); })));
+  root.appendChild(h('p', { class: 'mu xs' }, 'التحديات تنحسب من تمارينك المسجّلة فقط. هدف الحضور والمجموعات مبني على شهرك الماضي (نفس الحضور تقريباً وزيادة بسيطة بالمجموعات)، وأول شهر الأهداف بسيطة وثابتة. هذي للتحفيز، مو مقياس لقوتك.'));
+  return root;
+};
 PAGES.more = function () {
   var link = function (to, t, sub) { return h('div', { class: 'it', onclick: function () { go(to); } }, h('div', { class: 'g' }, h('div', { class: 'b' }, t), h('div', { class: 'mu sm' }, sub)), ic('fwd', 'ch')); };
-  return h('div', { class: 'page' }, title('المزيد'), installCard(), h('div', { class: 'grp' }, link('library', 'مكتبة التمارين', S.ex.filter(function (e) { return !e.archived; }).length + ' تمرين'), toolLink('🧮 حاسبة الأقراص', 'شنو تحط على كل جهة من البار', function () { plateCalc(null); }), toolLink('⚖️ جسمك', 'وزن وقياسات وصور تقدّم', function () { go('body'); }), toolLink('📅 تقرير الشهر', 'ملخص شهرك مع بطاقة تشاركها', function () { go('report'); }), link('stickers', 'ملصقاتي ورتبتك', earnedIds().length + ' ملصق مفتوح'), link('history', 'سجل التمارين', done().length + ' تمرين منتهٍ'), link('settings', 'الإعدادات', 'الوحدات، المؤقت، النسخ الاحتياطي')));
+  return h('div', { class: 'page' }, title('المزيد'), installCard(), h('div', { class: 'grp' }, link('library', 'مكتبة التمارين', S.ex.filter(function (e) { return !e.archived; }).length + ' تمرين'), toolLink('🧮 حاسبة الأقراص', 'شنو تحط على كل جهة من البار', function () { plateCalc(null); }), toolLink('⚖️ جسمك', 'وزن وقياسات وصور تقدّم', function () { go('body'); }), toolLink('📅 تقرير الشهر', 'ملخص شهرك مع بطاقة تشاركها', function () { go('report'); }), toolLink('🎯 تحديات الشهر', challengeSub(), function () { go('challenges'); }), link('stickers', 'ملصقاتي ورتبتك', stickerCount() + ' ملصق مفتوح'), link('history', 'سجل التمارين', done().length + ' تمرين منتهٍ'), link('settings', 'الإعدادات', 'الوحدات، المؤقت، النسخ الاحتياطي')));
 };
 
 PAGES.library = function () {
@@ -2191,7 +2474,7 @@ PAGES.settings = function () {
   var unitSeg = h('div', { class: 'seg' }, ['kg', 'lb'].map(function (u) { return h('button', { class: S.set.unit === u ? 'on' : '', onclick: function () { S.set.unit = u; sv().then(rerender); } }, u === 'kg' ? 'كيلوغرام' : 'باوند'); }));
   var themeSeg = h('div', { class: 'seg' }, [['dark', 'داكن'], ['light', 'فاتح']].map(function (u) { return h('button', { class: (S.set.theme === 'light' ? 'light' : 'dark') === u[0] ? 'on' : '', onclick: function () { S.set.theme = u[0]; sv().then(rerender); } }, u[1]); }));
   root.appendChild(h('div', { class: 'top' }, h('div', { class: 'row' }, backBtn('more'), h('h1', {}, 'الإعدادات'))));
-  root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'التمرين'), h('div', { class: 'grp pad' }, field('اسمك أو لقبك (للتحية)', nameIn), field('وحدة الوزن (يُخزَّن بالكيلوغرام ويُحوَّل للعرض)', unitSeg), field('الراحة الافتراضية (ثانية)', rest), field('المظهر', themeSeg)), h('div', { class: 'grp', style: 'margin-top:10px' }, chk('تشغيل مؤقت الراحة تلقائياً بعد كل مجموعة', 'autoRest'), chk('اهتزاز عند انتهاء الراحة وإكمال المجموعة', 'vibrate'), chk(wakeSupported() ? 'إبقاء الشاشة شغّالة أثناء التمرين (ما تنطفي)' : 'إبقاء الشاشة شغّالة (متصفحك ما يدعمها)', 'wake'))));
+  root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'التمرين'), h('div', { class: 'grp pad' }, field('اسمك أو لقبك (للتحية)', nameIn), goalField(), field('وحدة الوزن (يُخزَّن بالكيلوغرام ويُحوَّل للعرض)', unitSeg), field('الراحة الافتراضية (ثانية)', rest), field('المظهر', themeSeg)), h('div', { class: 'grp', style: 'margin-top:10px' }, chk('تشغيل مؤقت الراحة تلقائياً بعد كل مجموعة', 'autoRest'), chk('اهتزاز عند انتهاء الراحة وإكمال المجموعة', 'vibrate'), chk(wakeSupported() ? 'إبقاء الشاشة شغّالة أثناء التمرين (ما تنطفي)' : 'إبقاء الشاشة شغّالة (متصفحك ما يدعمها)', 'wake'))));
   root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'المدرّب (اقتراحات التدرّج)'), h('p', { class: 'mu sm', style: 'margin-bottom:8px' }, 'قواعد محلية على مجموعاتك المسجلة. اختياري، لا يغيّر برنامجك أبداً، ولا يعرف حالتك. توقف إذا شعرت بألم.'), progHelp(), h('div', { class: 'grp' }, chk('إظهار اقتراحات المدرّب', 'coach'), h('div', { class: 'pad', style: 'border-top:1px solid var(--ln)' }, field('خطوة زيادة الوزن الافتراضية (' + UL() + ')', inc)))));
   var imp = h('input', { type: 'file', accept: '.json,application/json', style: 'display:none', onchange: function (ev) { importFile(ev.target.files[0]); ev.target.value = ''; } });
   root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'بياناتك على هذا الجهاز'), h('div', { class: 'warn', style: 'margin-bottom:10px' }, 'بياناتك محفوظة داخل هذا المتصفح فقط. مسح بيانات Chrome أو نقل الملف قد يحذفها. صدّر نسخة احتياطية باستمرار واحفظها بمكان آخر (Telegram، Drive، كمبيوتر).'),
@@ -2204,7 +2487,7 @@ PAGES.settings = function () {
     h('div', {}, 'مسح بيانات المتصفح أو حذف التطبيق يمسح السجل. صدّر نسخة احتياطية قبل أي تحديث أو تغيير في طريقة التثبيت.'),
     h('div', { class: 'b' }, 'آخر نسخة احتياطية: ' + (lb ? new Date(lb).toLocaleDateString(LOC, { day: 'numeric', month: 'long', year: 'numeric' }) : 'لم تُصدَّر بعد')))));
   root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'عن التطبيق'), h('div', { style: 'padding:14px 0 8px' }, brand()),
-    h('p', { class: 'mu sm' }, 'الإصدار 3.1.0 — يعمل بدون إنترنت. لا حساب ولا خادم ولا تحليلات، ولا يُرسل أي شيء لأي مكان. الحجم = مجموع (الوزن × التكرارات) لمجموعات العمل المكتملة في تمارين الوزن + التكرارات فقط.'),
+    h('p', { class: 'mu sm' }, 'الإصدار 3.2.0 — يعمل بدون إنترنت. لا حساب ولا خادم ولا تحليلات، ولا يُرسل أي شيء لأي مكان. الحجم = مجموع (الوزن × التكرارات) لمجموعات العمل المكتملة في تمارين الوزن + التكرارات فقط.'),
     h('p', { class: 'mu sm', style: 'margin-top:6px' }, swOn ? 'وضع التثبيت: يعمل بدون إنترنت (Service Worker مفعّل).' : 'وضع التشغيل: ملف محلي أو بدون Service Worker.')));
   return root;
 };
@@ -2216,7 +2499,7 @@ function exportData(opts) {
 function backupBuild(withPhotos) {
   S.set.lastBackup = Date.now(); saveSet();
   var imgs = keys(S.img).map(function (id) { return { id: id, data: S.img[id] }; });
-  var data = { format: 'titanlog-local-backup', version: 1, app: '3.1.0', exportedAt: new Date().toISOString(), note: 'Weights are in kg.', settings: S.set, exercises: S.ex, programs: S.prog, sessions: S.ses, images: imgs, body: S.body };
+  var data = { format: 'titanlog-local-backup', version: 1, app: '3.2.0', exportedAt: new Date().toISOString(), note: 'Weights are in kg.', settings: S.set, exercises: S.ex, programs: S.prog, sessions: S.ses, images: imgs, body: S.body };
   if (!withPhotos) return Promise.resolve(JSON.stringify(data));
   return photosLoad().then(function () { data.photos = S.photos; return JSON.stringify(data); });
 }

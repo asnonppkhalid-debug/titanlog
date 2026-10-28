@@ -493,13 +493,15 @@ function num(v) { var s = norm(v); if (s === '') return null; var n = parseFloat
 function fmtN(n, d) { if (n == null) return '–'; return String(+(+n).toFixed(d == null ? 2 : d)); }
 var UL = function () { return S.set.unit === 'lb' ? 'باوند' : 'كغم'; };
 function fmtW(kg) { return kg == null ? '–' : fmtN(kgTo(kg), S.set.unit === 'lb' ? 1 : 2) + ' ' + UL(); }
+function isCardio(x) { return !!x && x.muscle === 'cardio'; }
+function fmtMin(sec) { var v = Math.round((sec || 0) / 6) / 10; return String(v); }
 function fmtDur(s) { s = Math.round(s); var m = Math.floor(s / 60); return m ? m + 'د ' + String(s % 60).padStart(2, '0') + 'ث' : s + 'ث'; }
 function fmtDate(d) { return new Date(d).toLocaleDateString(LOC, { weekday: 'short', day: 'numeric', month: 'short' }); }
 function fmtTime(d) { return new Date(d).toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit' }); }
 function ymd(d) { var x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); }
 function e1rm(w, r) { return (w > 0 && r >= 1 && r <= 10) ? (r === 1 ? w : w * (1 + r / 30)) : null; }
 var TRK = { weight_reps: 'وزن + تكرارات', bodyweight_reps: 'وزن الجسم + تكرارات', reps_only: 'تكرارات فقط', duration: 'مدة زمنية' };
-var MUS = { chest: 'صدر', back: 'ظهر', shoulders: 'أكتاف', biceps: 'باي (ذراع أمامي)', triceps: 'تراي (ذراع خلفي)', forearms: 'ساعد', abs: 'بطن', quadriceps: 'فخذ أمامي', hamstrings: 'فخذ خلفي', glutes: 'مؤخرة', calves: 'سمانة', traps: 'ترابيس', full_body: 'كامل الجسم', other: 'أخرى' };
+var MUS = { chest: 'صدر', back: 'ظهر', shoulders: 'أكتاف', biceps: 'باي (ذراع أمامي)', triceps: 'تراي (ذراع خلفي)', forearms: 'ساعد', abs: 'بطن', quadriceps: 'فخذ أمامي', hamstrings: 'فخذ خلفي', glutes: 'مؤخرة', calves: 'سمانة', traps: 'ترابيس', cardio: 'كارديو', full_body: 'كامل الجسم', other: 'أخرى' };
 var EQ = { barbell: 'بار', dumbbell: 'دمبل', machine: 'جهاز', cable: 'كيبل', bodyweight: 'وزن الجسم', kettlebell: 'كيتل بيل', bands: 'أحزمة مطاطية', smith_machine: 'سميث', other: 'أخرى' };
 var WDN = { 1: 'الاثنين', 2: 'الثلاثاء', 3: 'الأربعاء', 4: 'الخميس', 5: 'الجمعة', 6: 'السبت', 7: 'الأحد' };
 var WDS = { 1: 'اثنين', 2: 'ثلاثاء', 3: 'أربعاء', 4: 'خميس', 5: 'جمعة', 6: 'سبت', 7: 'أحد' };
@@ -598,13 +600,13 @@ function progHist(ex, n) {
   var out = [];
   done().sort(function (a, b) { return b.completedAt - a.completedAt; }).forEach(function (s) {
     if (out.length >= n) return;
-    var sets = [], eff = null, cfg = null;
+    var sets = [], eff = null, cfg = null, plan = null;
     s.exercises.forEach(function (e) {
       if (e.exId !== ex.id) return;
-      if (e.effort) eff = e.effort; if (e.cfg && e.cfg.min) cfg = e.cfg;
+      if (e.effort) eff = e.effort; if (e.cfg && e.cfg.min) cfg = e.cfg; if (e.cardioTarget) plan = e.cardioTarget;
       e.sets.forEach(function (st) { if (st.status === 'completed' && isWork(st) && valid(ex.tracking, st)) sets.push(st); });
     });
-    if (sets.length) out.push({ at: s.completedAt, date: ymd(s.completedAt), sets: sets, effort: eff, cfg: cfg });
+    if (sets.length) out.push({ at: s.completedAt, date: ymd(s.completedAt), sets: sets, effort: eff, cfg: cfg, plan: plan });
   });
   return out;
 }
@@ -615,6 +617,7 @@ function sesMetric(T, sets) {
   return { w: w, reps: reps, n: at.length, all: sets.length, lo: Math.min.apply(null, reps), avg: tot / reps.length };
 }
 function progPlan(ex, cfg) {
+  if (isCardio(ex)) return cardioPlan(ex, cfg);
   var T = ex.tracking, hist = progHist(ex, 4), unit = T === 'duration' ? ' ثانية' : ' تكرار';
   if (!hist.length) return { status: 'none', msg: 'لا توجد مجموعات عمل مكتملة بعد. سجّل تمريناً أولاً وتطلع الاقتراحات.' };
   var userRange = !!(cfg && cfg.min && cfg.max), dr = DEFRANGE[T];
@@ -674,10 +677,44 @@ function progPlan(ex, cfg) {
   if (eff === 'easy') why.push('قلت إنها كانت سهلة: إذا خلصت التكرارات وباقي طاقة، زيد تكرار أكثر.');
   return out('maintain', '➕', 'ضيف تكرار', 'ثبّت الحمل وحاول توصل ' + nx + unit + ' بكل مجموعة.' + (W ? '' : ''), 'ضيف تكرار → ' + nx, W ? w : null, nx);
 }
+/* ===== كارديو: زيادة تدريجية بالمدة (قاعدة ~١٠٪ مع ثبات جلستين، كله من سجلك) ===== */
+var CEFFL = { easy: 'سهل (كنت أكدر أكمل أكثر)', ok: 'مناسب', hard: 'مرهق (بالكاد خلّصت)' };
+function cardioPlan(ex, cfg) {
+  var hist = progHist(ex, 4);
+  if (!hist.length) return { status: 'none', msg: 'لا يوجد كارديو مسجّل بعد. سجّل جلسة أولاً وتطلع الاقتراحات.' };
+  function tot(x) { return x.sets.reduce(function (a, s) { return a + (s.dur || 0); }, 0); }
+  function plan(x) { return x.plan || (x.cfg && x.cfg.min) || (cfg && cfg.min) || tot(x); }
+  function rnd(sec) { return Math.max(60, Math.round(sec / 60) * 60); }
+  function mn(sec) { return fmtMin(sec); }
+  var a = hist[0], D = tot(a), T = plan(a), eff = a.effort, days = (Date.now() - a.at) / 864e5;
+  var why = ['آخر مرة (' + a.date + '): ' + mn(D) + ' دقيقة — الهدف كان ' + mn(T) + ' دقيقة.'];
+  if (eff) why.push('الجهد اللي سجلته: ' + CEFFL[eff] + '.');
+  var out = function (status, icon, title, msg, short, nw) { return { status: status, icon: icon, title: title, msg: msg, short: short, why: why, w: null, reps: nw }; };
+  var reached = D >= 0.95 * T, close = D >= 0.85 * T;
+  // ١) غياب طويل: ارجع بخفة
+  if (days >= 21) { var back = rnd(D * 0.75); why.push('مرّت ' + Math.round(days) + ' يوم على آخر كارديو: نرجّع الحمل ٢٥٪ ونبني من جديد.'); return out('decrease', '⬇️', 'ارجع بخفة', 'صار لك ' + Math.round(days) + ' يوم من آخر مرة. ابدأ بـ ' + mn(back) + ' دقيقة وبعدها تتدرّج.', 'ارجع بخفة → ' + mn(back) + ' د', back); }
+  if (days >= 14) { why.push('مرّت ' + Math.round(days) + ' يوم: نثبّت المدة ولا نزيد.'); return out('maintain', '⚖️', 'ثبّت المدة', 'صار لك فترة. ارجع بنفس ' + mn(D) + ' دقيقة وما تزيد هالمرة.', 'ثبّت ' + mn(D) + ' د', rnd(D)); }
+  // ٢) مرهق
+  if (eff === 'hard') {
+    if (hist[1] && hist[1].effort === 'hard') { var dn = rnd(D * 0.9); why.push('جلستين ورا بعض كانت مرهقة: نخفف حوالي ١٠٪.'); return out('decrease', '⬇️', 'خفّف شوية', 'جلستين مرهقات. نزّل إلى ' + mn(dn) + ' دقيقة هالمرة وارجع تتدرّج، وشيّك على نومك وأكلك.', 'خفّف → ' + mn(dn) + ' د', dn); }
+    why.push('كانت مرهقة: نكرّر نفس المدة قبل أي زيادة.'); return out('maintain', '⚖️', 'ثبّت المدة', 'كانت مرهقة. كرّر ' + mn(Math.max(D, T)) + ' دقيقة وحاول تكون أريح قبل ما تزيد.', 'ثبّت ' + mn(Math.max(D, T)) + ' د', rnd(Math.max(D, T)));
+  }
+  // ٣) ما وصلت الهدف
+  if (!reached) { why.push('سويت ' + Math.round(D / T * 100) + '٪ من الهدف.'); return out('maintain', '⚖️', close ? 'قريب، كرّر' : 'ثبّت الهدف', (close ? 'قريب جداً. ' : '') + 'كرّر ' + mn(T) + ' دقيقة وبعدها نزيد. ما أقترح زيادة وانت ما وصلت الهدف.', 'كرّر ' + mn(T) + ' د', rnd(T)); }
+  // ٤) وصلت الهدف: نحتاج جلستين ورا بعض (أو سهل)
+  var base = Math.max(D, T), p1 = hist[1] ? tot(hist[1]) >= 0.95 * plan(hist[1]) : false;
+  if (!(p1 || eff === 'easy')) { why.push('نحتاج تثبت الهدف جلستين ورا بعض قبل الزيادة (إلا إذا كانت سهلة).'); return out('maintain', '⚖️', 'كرّر مرة وحدة', 'عفية، وصلت ' + mn(D) + ' دقيقة. كرّر نفس المدة مرة ثانية، وإذا انعادت تزيد.', 'كرّر ' + mn(base) + ' د للتأكيد', rnd(base)); }
+  // ٥) سقف الساعة: زيّد الشدة بدل المدة
+  if (base >= 3600) { why.push('بعد حوالي ساعة الأفضل نزيد الشدة مو المدة.'); return out('maintain', '🔥', 'زيّد الشدة', 'وصلت ساعة. بدل ما تطوّل أكثر، زيّد الشدة شوية (سرعة أو ميلان أو مقاومة) وخلّ المدة ' + mn(base) + ' دقيقة.', 'زيّد الشدة', rnd(base)); }
+  var step = Math.min(5, Math.max(1, Math.round(base * 0.1 / 60))); if (eff === 'easy') step = Math.min(5, step + 1);
+  var nw = rnd(base) + step * 60; why.push('القاعدة: زيادة ' + step + ' دقيقة (حوالي ' + Math.round(step * 60 / base * 100) + '٪) بعد ما ثبّتّ الهدف' + (eff === 'easy' ? ' وقلت إنها كانت سهلة' : ' جلستين') + '.');
+  return out('increase', '📈', 'جاهز تزيد', 'كفو! ثبّتّ ' + mn(base) + ' دقيقة. جرّب ' + mn(nw) + ' دقيقة (+' + step + ' د).', 'جاهز تزيد → ' + mn(nw) + ' د', nw);
+}
 function coachFor(ex, cfg) { if (!S.set.coach) return null; return progPlan(ex, cfg); }
 function effortRow(e, edit, redraw) {
-  return h('div', { style: 'margin-top:10px' }, h('div', { class: 'mu xs b' }, 'شكد كانت صعبة آخر مجموعة؟ (يساعد المدرّب يقرر الزيادة)'),
-    h('div', { class: 'seg', style: 'margin-top:6px' }, [['easy', '😌 سهلة'], ['ok', '👌 مناسبة'], ['hard', '😵 للفشل']].map(function (o) {
+  var cd = isCardio(e);
+  return h('div', { style: 'margin-top:10px' }, h('div', { class: 'mu xs b' }, cd ? 'شكد كان صعب الكارديو؟ (يساعد المدرّب يقرر الزيادة)' : 'شكد كانت صعبة آخر مجموعة؟ (يساعد المدرّب يقرر الزيادة)'),
+    h('div', { class: 'seg', style: 'margin-top:6px' }, (cd ? [['easy', '😌 سهل'], ['ok', '👌 مناسب'], ['hard', '😵 مرهق']] : [['easy', '😌 سهلة'], ['ok', '👌 مناسبة'], ['hard', '😵 للفشل']]).map(function (o) {
       return h('button', { class: e.effort === o[0] ? 'on' : '', 'aria-label': EFFL[o[0]], onclick: function () { e.effort = e.effort === o[0] ? null : o[0]; edit().then(redraw); } }, o[1]);
     })));
 }
@@ -717,7 +754,8 @@ function progHelp() {
       '٤) سجّل «شكد كانت صعبة؟» بنهاية التمرين: سهلة = قفزة أكبر، للفشل = كرّر مرة وحدة قبل الزيادة.',
       '٥) إذا نزلت تحت أول النطاق بجلستين ورا بعض، أقترح تنزّل الوزن شوية.',
       '٦) إذا واقف ٣ جلسات (عشرة أيام على الأقل) بدون تحسّن، يطلع «ركود»: خفّف حوالي ١٠٪ لجلسة وشيّك على نومك وأكلك.',
-      '٧) قفزة الوزن تتغير حسب المعدّة (الدمبل أصغر) وتكدر تحدد قفزة خاصة لكل تمرين من تعديل التمرين. القفزة ما تتعدى ١٠٪ من وزنك إلا إذا حددتها انت.',
+      '٧) الكارديو: لو سويت المدة المطلوبة جلستين ورا بعض (أو مرة وحدة وقلت سهل) أقترح زيادة حوالي ١٠٪ (من دقيقة إلى ٥ دقايق). إذا كانت مرهقة أثبّت، وإذا غبت أسبوعين أثبّت، وإذا غبت ٣ أسابيع أنزّل ٢٥٪. بعد ساعة أقترح تزيّد الشدة مو المدة.',
+      '٨) قفزة الوزن تتغير حسب المعدّة (الدمبل أصغر) وتكدر تحدد قفزة خاصة لكل تمرين من تعديل التمرين. القفزة ما تتعدى ١٠٪ من وزنك إلا إذا حددتها انت.',
       'الاقتراحات قواعد محلية على سجلك فقط، ما تعرف حالتك اليوم. وقّف إذا حسيت بألم.'
     ].map(function (t) { return h('div', {}, t); })));
 }
@@ -1632,6 +1670,7 @@ function volCalc(from, to) {
     if (s.completedAt < from || s.completedAt >= to) return;
     s.exercises.forEach(function (e) {
       var mu = e.muscle || (exById(e.exId) || {}).muscle, n = e.sets.filter(function (t) { return t.status === 'completed' && t.type !== 'warmup'; }).length; if (!n) return;
+      if (mu === 'cardio') return;
       if (!mu || mu === 'other' || mu === 'full_body') { other += n; return; }
       var o = m[mu] || (m[mu] = { n: 0, last: 0 }); o.n += n; if (s.completedAt > o.last) o.last = s.completedAt;
     });
@@ -2231,7 +2270,7 @@ var STARTER = [
   ['فيس بول', 'Face Pull', 'shoulders', 'cable', 'weight_reps'], ['ضغط أكتاف بالبار', 'Overhead Press', 'shoulders', 'barbell', 'weight_reps'], ['ضغط أكتاف بالدمبل', 'Dumbbell Shoulder Press', 'shoulders', 'dumbbell', 'weight_reps'], ['رفرفة جانبية', 'Lateral Raise', 'shoulders', 'dumbbell', 'weight_reps'], ['رفرفة خلفية', 'Rear Delt Fly', 'shoulders', 'dumbbell', 'weight_reps'], ['شرق بالبار', 'Barbell Shrug', 'traps', 'barbell', 'weight_reps'],
   ['باي بالبار', 'Barbell Curl', 'biceps', 'barbell', 'weight_reps'], ['باي بالدمبل', 'Dumbbell Curl', 'biceps', 'dumbbell', 'weight_reps'], ['باي هامر', 'Hammer Curl', 'biceps', 'dumbbell', 'weight_reps'], ['تراي بوش داون', 'Triceps Pushdown', 'triceps', 'cable', 'weight_reps'], ['سكل كراشر', 'Skull Crusher', 'triceps', 'barbell', 'weight_reps'], ['تراي فوق الرأس بالدمبل', 'Overhead Triceps Extension', 'triceps', 'dumbbell', 'weight_reps'], ['بنش ضيق', 'Close-Grip Bench Press', 'triceps', 'barbell', 'weight_reps'],
   ['سكوات خلفي', 'Back Squat', 'quadriceps', 'barbell', 'weight_reps'], ['سكوات أمامي', 'Front Squat', 'quadriceps', 'barbell', 'weight_reps'], ['ضغط أرجل (ليج برس)', 'Leg Press', 'quadriceps', 'machine', 'weight_reps'], ['ليج اكستنشن', 'Leg Extension', 'quadriceps', 'machine', 'weight_reps'], ['رفعة ميتة رومانية', 'Romanian Deadlift', 'hamstrings', 'barbell', 'weight_reps'], ['ليج كيرل', 'Leg Curl', 'hamstrings', 'machine', 'weight_reps'], ['لانج مشي', 'Walking Lunge', 'quadriceps', 'dumbbell', 'weight_reps'], ['سكوات بلغاري', 'Bulgarian Split Squat', 'quadriceps', 'dumbbell', 'weight_reps'], ['هيب ثراست', 'Hip Thrust', 'glutes', 'barbell', 'weight_reps'], ['سمانة واقف', 'Standing Calf Raise', 'calves', 'machine', 'weight_reps'], ['سمانة جلوس', 'Seated Calf Raise', 'calves', 'machine', 'weight_reps'],
-  ['بلانك', 'Plank', 'abs', 'bodyweight', 'duration'], ['رفع الأرجل معلّقاً', 'Hanging Leg Raise', 'abs', 'bodyweight', 'reps_only'], ['كرنش', 'Crunch', 'abs', 'bodyweight', 'reps_only']
+  ['بلانك', 'Plank', 'abs', 'bodyweight', 'duration'], ['جري على السير', 'Treadmill Run', 'cardio', 'machine', 'duration'], ['مشي على السير', 'Treadmill Walk', 'cardio', 'machine', 'duration'], ['دراجة ثابتة', 'Stationary Bike', 'cardio', 'machine', 'duration'], ['جهاز الإهليلجي', 'Elliptical', 'cardio', 'machine', 'duration'], ['جهاز التجديف', 'Rowing Machine', 'cardio', 'machine', 'duration'], ['نط الحبل', 'Jump Rope', 'cardio', 'other', 'duration'], ['رفع الأرجل معلّقاً', 'Hanging Leg Raise', 'abs', 'bodyweight', 'reps_only'], ['كرنش', 'Crunch', 'abs', 'bodyweight', 'reps_only']
 ];
 function seedLib() {
   var have = {}; S.ex.forEach(function (e) { have[e.name.toLowerCase()] = 1; if (e.alt) have[e.alt.toLowerCase()] = 1; });
@@ -2256,13 +2295,14 @@ function exerciseForm(ex, onSaved) {
     fileToImage(f).then(function (d) { pending = d; drawPrev(); }, function () { toast('تعذّرت قراءة الصورة', 'er'); });
   } });
   q.addEventListener('change', drawPrev); drawPrev();
+  m.addEventListener('change', function () { if (m.value === 'cardio') tr.value = 'duration'; });
   var imgBox = Store.mode === 'idb' ? field('صورة التمرين (اختيارية — تُحفظ على جهازك فقط)', h('div', { class: 'row' }, prev, h('div', { class: 'g' }, h('div', { class: 'row wrap' }, h('button', { type: 'button', class: 'btn s', onclick: function () { file.click(); } }, 'اختيار صورة'), h('button', { type: 'button', class: 'btn s dg', onclick: function () { pending = null; drawPrev(); } }, 'إزالة')), file))) : h('div', { class: 'mu xs', style: 'margin-bottom:14px' }, 'حفظ الصور يحتاج التخزين الأساسي للمتصفح (غير متاح الآن).');
   var close = sheet(ex ? 'تعديل التمرين' : 'تمرين جديد', h('div', {}, field('الاسم', nm), field('اسم بديل (اختياري)', alt), h('div', { class: 'row' }, h('div', { class: 'g' }, field('العضلة الرئيسية', m)), h('div', { class: 'g' }, field('المعدّة', q))), field('طريقة التسجيل', tr), field('قفزة زيادة الوزن لهذا التمرين (' + UL() + ') — اختياري', incIn), imgBox, field('رابط فيديو توضيحي (اختياري)', vid), field('طريقة الأداء (اختياري)', instr), field('ملاحظاتي (اختياري)', notes),
     ex ? h('div', { class: 'row wrap' }, h('button', { class: 'btn s', onclick: function () { ex.archived = !ex.archived; persist('exercises', ex).then(function () { close(); rerender(); }); } }, ex.archived ? 'استعادة' : 'أرشفة'), h('button', { class: 'btn s dg', onclick: function () { close(); delEx(ex); } }, 'حذف')) : null),
     function (c) { return [h('button', { class: 'btn', onclick: c }, 'إلغاء'), h('button', { class: 'btn pri', onclick: function () {
       var name = nm.value.trim(); if (!name) return toast('اكتب اسم التمرين', 'er');
       if (vid.value.trim() && !/^https?:\/\//i.test(vid.value.trim())) return toast('الرابط لازم يبدأ بـ http:// أو https://', 'er');
-      Object.assign(e, { name: name, alt: alt.value.trim(), muscle: m.value, equip: q.value, tracking: tr.value, video: vid.value.trim(), notes: notes.value.trim(), instr: instr.value.trim(), inc: (function () { var n = num(incIn.value); return n > 0 && n <= 50 ? +toKg(n).toFixed(4) : null; })() });
+      Object.assign(e, { name: name, alt: alt.value.trim(), muscle: m.value, equip: q.value, tracking: m.value === 'cardio' ? 'duration' : tr.value, video: vid.value.trim(), notes: notes.value.trim(), instr: instr.value.trim(), inc: (function () { var n = num(incIn.value); return n > 0 && n <= 50 ? +toKg(n).toFixed(4) : null; })() });
       if (!ex) S.ex.push(e); else Object.assign(ex, e);
       var tgt = ex || e;
       persist('exercises', tgt).then(function () {
@@ -2450,9 +2490,9 @@ function pgProgram(p) {
       h('div', { class: 'row', style: 'gap:2px' }, h('button', { class: 'ib', onclick: function () { mv(p.days, di, -1); }, 'aria-label': 'للأعلى' }, ic('up')), h('button', { class: 'ib', onclick: function () { mv(p.days, di, 1); }, 'aria-label': 'للأسفل' }, ic('down')), h('button', { class: 'btn s', onclick: function () { dayForm(p, d); } }, 'تعديل')));
     if (d.rest) { root.appendChild(h('div', { class: 'sec' }, head)); return; }
     root.appendChild(h('div', { class: 'sec' }, head,
-      h('div', { class: 'grp' }, d.exercises.length ? d.exercises.map(function (e, ei) { var ex = exById(e.exId); return h('div', { class: 'it', onclick: function () { peForm(p, d, e); } }, h('div', { class: 'g' }, h('div', { class: 'b' }, ex ? ex.name : '(تمرين محذوف)', e.link && ei < d.exercises.length - 1 ? h('span', { class: 'tag yl', style: 'margin-inline-start:8px' }, '⛓ سوبر سِت مع اللي بعده') : null), h('div', { class: 'mu sm' }, e.sets + ' مجموعات' + (e.min ? ' × ' + e.min + '–' + e.max + (ex && ex.tracking === 'duration' ? ' ثانية' : ' تكرار') : '') + (e.rest != null ? ' · راحة ' + e.rest + 'ث' : ''))),
+      h('div', { class: 'grp' }, d.exercises.length ? d.exercises.map(function (e, ei) { var ex = exById(e.exId); return h('div', { class: 'it', onclick: function () { peForm(p, d, e); } }, h('div', { class: 'g' }, h('div', { class: 'b' }, ex ? ex.name : '(تمرين محذوف)', e.link && ei < d.exercises.length - 1 ? h('span', { class: 'tag yl', style: 'margin-inline-start:8px' }, '⛓ سوبر سِت مع اللي بعده') : null), h('div', { class: 'mu sm' }, (isCardio(ex) ? 'كارديو · ' + (e.min ? fmtMin(e.min) + ' دقيقة' : 'بدون مدة محددة') : e.sets + ' مجموعات' + (e.min ? ' × ' + e.min + '–' + e.max + (ex && ex.tracking === 'duration' ? ' ثانية' : ' تكرار') : '') + (e.rest != null ? ' · راحة ' + e.rest + 'ث' : '')))),
         h('button', { class: 'ib', onclick: function (ev) { ev.stopPropagation(); mv(d.exercises, ei, -1); }, 'aria-label': 'للأعلى' }, ic('up')), h('button', { class: 'ib', onclick: function (ev) { ev.stopPropagation(); mv(d.exercises, ei, 1); }, 'aria-label': 'للأسفل' }, ic('down'))); }) : h('div', { class: 'empty' }, 'لا توجد تمارين في هذا اليوم.')),
-      h('div', { class: 'row', style: 'margin-top:10px' }, h('button', { class: 'btn g', onclick: function () { pickExercises(function (list) { list.forEach(function (x) { d.exercises.push({ id: uid(), exId: x.id, sets: 3, min: x.tracking === 'duration' ? 30 : 8, max: x.tracking === 'duration' ? 60 : 12, rest: null, notes: '', prog: 'auto' }); }); save(); }); } }, ic('plus'), 'تمارين'), h('button', { class: 'btn pri g', disabled: !!activeSes() || !d.exercises.length, onclick: function () { startFromDay(p.id, d.id); } }, 'ابدأ هذا اليوم'))));
+      h('div', { class: 'row', style: 'margin-top:10px' }, h('button', { class: 'btn g', onclick: function () { pickExercises(function (list) { list.forEach(function (x) { d.exercises.push({ id: uid(), exId: x.id, sets: isCardio(x) ? 1 : 3, min: isCardio(x) ? 1200 : x.tracking === 'duration' ? 30 : 8, max: isCardio(x) ? 1200 : x.tracking === 'duration' ? 60 : 12, rest: null, notes: '', prog: 'auto' }); }); save(); }); } }, ic('plus'), 'تمارين'), h('button', { class: 'btn pri g', disabled: !!activeSes() || !d.exercises.length, onclick: function () { startFromDay(p.id, d.id); } }, 'ابدأ هذا اليوم'))));
   });
   root.appendChild(h('button', { class: 'btn f', onclick: function () { dayForm(p); } }, ic('plus'), cyc ? 'إضافة يوم (' + dayLabel(p.days.length) + ')' : 'إضافة يوم تدريب'));
   return root;
@@ -2475,11 +2515,13 @@ function dayForm(p, d) {
 function peForm(p, d, e) {
   var ex = exById(e.exId), dur = ex && ex.tracking === 'duration';
   var sets = h('input', { type: 'text', inputmode: 'numeric', dir: 'ltr', value: e.sets }), mn = h('input', { type: 'text', inputmode: 'numeric', dir: 'ltr', value: e.min || '' }), mx = h('input', { type: 'text', inputmode: 'numeric', dir: 'ltr', value: e.max || '' }), rest = h('input', { type: 'text', inputmode: 'numeric', dir: 'ltr', value: e.rest == null ? '' : e.rest, placeholder: 'افتراضي' }), nt = h('textarea', { rows: 2 }, e.notes || '');
+  var cardio = isCardio(ex), cmin = h('input', { type: 'text', inputmode: 'decimal', dir: 'ltr', value: e.min ? fmtMin(e.min) : '', placeholder: 'مثال: 20' });
   var lk = h('input', { type: 'checkbox', checked: !!e.link }), lkRow = d.exercises.indexOf(e) < d.exercises.length - 1 ? h('label', { class: 'row', style: 'padding:10px 0;min-height:48px' }, lk, h('span', { class: 'g' }, 'سوبر سِت مع التمرين اللي بعده ⛓')) : null;
   var pm = sel(['auto', 'off'], e.prog || 'auto', null, function (v) { return v === 'auto' ? 'اقتراحات المدرب مفعّلة' : 'اقتراحات المدرب متوقفة لهذا التمرين'; });
-  var close = sheet(ex ? ex.name : 'تمرين', h('div', {}, h('div', { class: 'row' }, h('div', { class: 'g' }, field('المجموعات', sets)), h('div', { class: 'g' }, field(dur ? 'أقل مدة (ث)' : 'أقل تكرار', mn)), h('div', { class: 'g' }, field(dur ? 'أكثر مدة (ث)' : 'أكثر تكرار', mx))), field('الراحة بالثواني (اختياري)', rest), field('التدرّج', pm), lkRow, field('ملاحظات (اختياري)', nt),
+  var close = sheet(ex ? ex.name : 'تمرين', cardio ? h('div', {}, field('المدة اللازم تسويها (دقيقة)', cmin), h('p', { class: 'mu sm' }, 'تنكتب جاهزة بالتمرين، وتعدّلها بوقتها إذا سويت أقل أو أكثر.'), field('ملاحظات (اختياري)', nt), h('button', { class: 'btn s dg', onclick: function () { d.exercises = d.exercises.filter(function (x) { return x.id !== e.id; }); persist('programs', p).then(function () { close(); rerender(); }); } }, 'إزالة من هذا اليوم')) : h('div', {}, h('div', { class: 'row' }, h('div', { class: 'g' }, field('المجموعات', sets)), h('div', { class: 'g' }, field(dur ? 'أقل مدة (ث)' : 'أقل تكرار', mn)), h('div', { class: 'g' }, field(dur ? 'أكثر مدة (ث)' : 'أكثر تكرار', mx))), field('الراحة بالثواني (اختياري)', rest), field('التدرّج', pm), lkRow, field('ملاحظات (اختياري)', nt),
     h('button', { class: 'btn s dg', onclick: function () { d.exercises = d.exercises.filter(function (x) { return x.id !== e.id; }); persist('programs', p).then(function () { close(); rerender(); }); } }, 'إزالة من هذا اليوم')),
     function (c) { return [h('button', { class: 'btn', onclick: c }, 'إلغاء'), h('button', { class: 'btn pri', onclick: function () {
+      if (cardio) { var cm = num(cmin.value); if (cm == null || !(cm >= 1 && cm <= 600)) return toast('اكتب المدة بالدقائق (من 1 إلى 600)', 'er'); Object.assign(e, { sets: 1, min: Math.round(cm * 60), max: Math.round(cm * 60), rest: null, notes: nt.value.trim() }); return persist('programs', p).then(function () { c(); rerender(); }); }
       var a = num(mn.value), b = num(mx.value), s = parseInt(norm(sets.value), 10);
       if (!(s >= 1 && s <= 30)) return toast('عدد المجموعات بين 1 و 30', 'er');
       if ((a == null) !== (b == null) || (a != null && (a < 1 || a > b))) return toast('اكتب أقل وأكثر (الأقل ≤ الأكثر)، أو اتركهما فارغين', 'er');
@@ -2490,7 +2532,7 @@ function peForm(p, d, e) {
 
 function newSession(name, prog, day) { return { id: uid(), name: name, status: 'active', startedAt: Date.now(), completedAt: null, notes: '', progName: prog ? prog.name : '', progId: prog ? prog.id : null, dayId: day ? day.id : null, dayName: day ? day.name : '', exercises: [] }; }
 function mkSet() { return { id: uid(), type: 'working', w: null, reps: null, dur: null, status: 'pending' }; }
-function mkEx(ex, cfg) { var n = cfg ? cfg.sets : 3, sets = []; for (var i = 0; i < n; i++) sets.push(mkSet()); return { id: uid(), exId: ex.id, name: ex.name, tracking: ex.tracking, muscle: ex.muscle, notes: '', cfg: cfg ? { sets: cfg.sets, min: cfg.min, max: cfg.max, rest: cfg.rest, prog: cfg.prog } : null, sets: sets }; }
+function mkEx(ex, cfg) { var n = cfg ? cfg.sets : 3, sets = []; for (var i = 0; i < n; i++) { var ns = mkSet(); if (isCardio(ex) && cfg && cfg.min) ns.dur = cfg.min; sets.push(ns); } return { id: uid(), exId: ex.id, name: ex.name, tracking: ex.tracking, muscle: ex.muscle, notes: '', cfg: cfg ? { sets: cfg.sets, min: cfg.min, max: cfg.max, rest: cfg.rest, prog: cfg.prog } : null, sets: sets }; }
 
 function startEmpty(name) { var s = newSession(name || 'تمرين', null, null); S.ses.push(s); persist('sessions', s).then(function () { go('workout'); route(); }); }
 PAGES.workout = function () {
@@ -2508,7 +2550,7 @@ function prevFor(exId, beforeId) {
   if (!s) return null; var e = s.exercises.filter(function (x) { return x.exId === exId; })[0];
   return { date: s.completedAt, sets: e.sets.filter(function (t) { return t.status === 'completed'; }) };
 }
-function setText(T, st) { return T === 'weight_reps' ? fmtN(kgTo(st.w), 1) + '×' + st.reps : T === 'duration' ? st.dur + 'ث' : (st.w ? '+' + fmtN(kgTo(st.w), 1) + ' ' : '') + st.reps + ' تكرار'; }
+function setText(T, st, cardio) { return T === 'weight_reps' ? fmtN(kgTo(st.w), 1) + '×' + st.reps : T === 'duration' ? (cardio ? fmtMin(st.dur) + ' د' : st.dur + 'ث') : (st.w ? '+' + fmtN(kgTo(st.w), 1) + ' ' : '') + st.reps + ' تكرار'; }
 function cols(T) { return (T === 'weight_reps' || T === 'bodyweight_reps') ? '30px 1fr 74px 64px 46px 30px' : '30px 1fr 64px 46px 30px'; }
 function ssLabel(s, e) { var gs = [], i; s.exercises.forEach(function (x) { if (x.ss && gs.indexOf(x.ss) < 0) gs.push(x.ss); }); i = gs.indexOf(e.ss); return 'سوبر سِت ' + (['أ', 'ب', 'ج', 'د', 'هـ', 'و'][i] || (i + 1)); }
 function priorBest(exId, exceptSid) {
@@ -2528,7 +2570,7 @@ function sessionEditor(s, live) {
     var T = e.tracking, ex = exById(e.exId), prev = e.exId ? prevFor(e.exId, s.id) : null, blk = h('div', { class: 'xc' + (e.ss ? ' ss' : '') + (NEXTUP === e.id ? ' next' : '') }), cl = cols(T), dur = T === 'duration';
     var pw = prev ? prev.sets.filter(function (x) { return x.type !== 'warmup'; }) : [];
     blk.appendChild(h('div', { class: 'ttl' }, h('span', { class: 'ix' }, String(ei + 1)), ex && S.img[ex.id] ? exThumb(ex, 'sm2', true) : null,
-      h('div', { class: 'g' }, h('h2', {}, e.name), h('div', { class: 'mu xs' }, TRK[T] + (e.cfg ? ' · الهدف ' + e.cfg.sets + (e.cfg.min ? '×' + e.cfg.min + '–' + e.cfg.max : '') : ''), e.ss ? h('span', { class: 'tag yl', style: 'margin-inline-start:6px' }, '⛓ ' + ssLabel(s, e)) : null)),
+      h('div', { class: 'g' }, h('h2', {}, e.name), h('div', { class: 'mu xs' }, isCardio(e) ? 'كارديو' + (e.cardioTarget || (e.cfg && e.cfg.min) ? ' · الهدف ' + fmtMin(e.cardioTarget || e.cfg.min) + ' دقيقة' : '') : TRK[T] + (e.cfg ? ' · الهدف ' + e.cfg.sets + (e.cfg.min ? '×' + e.cfg.min + '–' + e.cfg.max : '') : ''), e.ss ? h('span', { class: 'tag yl', style: 'margin-inline-start:6px' }, '⛓ ' + ssLabel(s, e)) : null)),
       ex && ex.video && /^https?:\/\//i.test(ex.video) ? h('a', { href: ex.video, target: '_blank', rel: 'noopener', class: 'ib', 'aria-label': 'فيديو' }, ic('play')) : null,
       h('button', { class: 'ib', onclick: function () { exMenu(s, e, ei, redraw, edit, live); }, 'aria-label': 'خيارات التمرين' }, ic('dots'))));
     if (e.notes && !live) blk.appendChild(h('div', { class: 'mu sm' }, e.notes));
@@ -2536,14 +2578,14 @@ function sessionEditor(s, live) {
     if (ex && live && S.set.coach && !(e.cfg && e.cfg.prog === 'off') && !e.coachDismissed) {
       var c = coachFor(ex, e.cfg && e.cfg.min ? e.cfg : null);
       if (c && c.status !== 'none') TGT[e.id] = { w: c.w, reps: c.reps };
-      if (live && c && c.status !== 'none' && !e.autoFilled) { e.autoFilled = true; if (applyPlan(e, c, false)) edit(); }
+      if (live && c && c.status !== 'none' && !e.autoFilled) { e.autoFilled = true; var cdo = isCardio(e); if (cdo && c.reps) e.cardioTarget = c.reps; if (applyPlan(e, c, cdo)) edit(); }
       if (c) blk.appendChild(h('div', { class: 'coach' }, h('div', { class: 'b' }, (c.icon ? c.icon + ' ' : '🧠 ') + (c.title || 'المدرّب')), h('div', {}, c.msg)));
     }
-    blk.appendChild(h('div', { class: 'sh', style: 'grid-template-columns:' + cl }, h('span', {}, '#'), h('span', {}, prev ? 'السابق' : ''), (dur || T === 'reps_only') ? null : h('span', {}, T === 'weight_reps' ? UL() : 'إضافي ' + UL()), h('span', {}, dur ? 'ثانية' : 'تكرار'), h('span'), h('span')));
+    blk.appendChild(h('div', { class: 'sh', style: 'grid-template-columns:' + cl }, h('span', {}, '#'), h('span', {}, prev ? 'السابق' : ''), (dur || T === 'reps_only') ? null : h('span', {}, T === 'weight_reps' ? UL() : 'إضافي ' + UL()), h('span', {}, dur ? (isCardio(e) ? 'دقيقة' : 'ثانية') : 'تكرار'), h('span'), h('span')));
     var wi = 0, fp = -1;
     for (var q = 0; q < e.sets.length; q++) if (e.sets[q].status === 'pending') { fp = q; break; }
     e.sets.forEach(function (st, si) {
-      var pv = '–', p = null; if (st.type !== 'warmup') { p = pw[wi] || null; wi++; if (p) pv = setText(T, p); }
+      var pv = '–', p = null; if (st.type !== 'warmup') { p = pw[wi] || null; wi++; if (p) pv = setText(T, p, isCardio(e)); }
       blk.appendChild(setRow({ s: s, e: e, st: st, si: si, T: T, edit: edit, redraw: redraw, pv: pv, pvSet: p, cl: cl, workIdx: wi, cur: live && si === fp }));
     });
     var acts = [h('button', { class: 'btn s g', onclick: function () { var last = e.sets[e.sets.length - 1], n = mkSet(); if (last) n.w = last.w; e.sets.push(n); edit().then(redraw); } }, ic('plus'), 'مجموعة')];
@@ -2567,7 +2609,7 @@ function renameSes(s) { var n = h('input', { value: s.name }); sheet('اسم ا�
 function valid2(T, st) { return T === 'weight_reps' ? st.reps >= 1 && st.w != null && st.w >= 0 : T === 'duration' ? st.dur >= 1 : st.reps >= 1; }
 var STNAME = { warmup: 'إحماء', drop: 'دروب سِت', failure: 'للفشل' };
 function setRow(o) {
-  var s = o.s, e = o.e, st = o.st, si = o.si, T = o.T, edit = o.edit, redraw = o.redraw, pv = o.pv, pvSet = o.pvSet, cl = o.cl, workIdx = o.workIdx, dur = T === 'duration', ex = exById(e.exId);
+  var s = o.s, e = o.e, st = o.st, si = o.si, T = o.T, edit = o.edit, redraw = o.redraw, pv = o.pv, pvSet = o.pvSet, cl = o.cl, workIdx = o.workIdx, dur = T === 'duration', cardio = isCardio(e), ex = exById(e.exId);
   var tcls = st.type === 'warmup' ? ' warm' : st.type === 'drop' ? ' drp' : st.type === 'failure' ? ' fail' : '';
   var row = h('div', { class: 'set' + tcls + (st.status === 'completed' ? ' done' : '') + (st.status === 'skipped' ? ' skip' : ''), style: 'grid-template-columns:' + cl });
   var wv = st.w == null ? '' : fmtN(kgTo(st.w), 2), tg = TGT[e.id];
@@ -2581,13 +2623,13 @@ function setRow(o) {
   }
   row.appendChild(pvSet && st.status === 'pending' ? h('button', { class: 'pv cp', 'aria-label': 'انسخ أرقام المرة السابقة', onclick: copyPrev }, pv) : h('div', { class: 'pv' }, pv));
   if (!dur && T !== 'reps_only') { wIn = numInput(wv, function (v) { var n = num(v); if (norm(v) === '') st.w = null; else if (n != null && n >= 0) st.w = +toKg(n).toFixed(4); }, tg && tg.w != null ? fmtN(kgTo(tg.w), 2) : (T === 'bodyweight_reps' ? '0' : ''), 'الوزن'); row.appendChild(wIn); }
-  rIn = numInput(dur ? (st.dur == null ? '' : st.dur) : (st.reps == null ? '' : st.reps), function (v) { var n = num(v), val = norm(v) === '' ? null : (n != null && n >= 0 ? Math.round(n) : null); if (dur) st.dur = val; else st.reps = val; }, tg && tg.reps != null ? String(tg.reps) : '', dur ? 'الثواني' : 'التكرارات');
+  rIn = numInput(dur ? (st.dur == null ? '' : (cardio ? fmtMin(st.dur) : st.dur)) : (st.reps == null ? '' : st.reps), function (v) { var n = num(v), val = norm(v) === '' ? null : (n != null && n >= 0 ? Math.round(cardio && dur ? n * 60 : n) : null); if (dur) st.dur = val; else st.reps = val; }, cardio ? '' : (tg && tg.reps != null ? String(tg.reps) : ''), dur ? (cardio ? 'الدقائق' : 'الثواني') : 'التكرارات');
   row.appendChild(rIn);
   row.appendChild(h('button', { class: 'ck', 'aria-label': st.status === 'completed' ? 'إلغاء إكمال المجموعة' : 'إكمال المجموعة', onclick: function () {
     if (st.status === 'completed') { st.status = 'pending'; delete st.pr; return edit().then(redraw); }
     if (wIn) { var wn = num(wIn.value); if (wn != null && wn >= 0) st.w = +toKg(wn).toFixed(4); }
-    var rn = num(rIn.value); if (rn != null && rn >= 0) { if (dur) st.dur = Math.round(rn); else st.reps = Math.round(rn); }
-    if (!valid2(T, st)) return toast(dur ? 'اكتب عدد الثواني أولاً' : T === 'weight_reps' ? 'اكتب الوزن (يجوز صفر) والتكرارات' : 'اكتب عدد التكرارات أولاً', 'er');
+    var rn = num(rIn.value); if (rn != null && rn >= 0) { if (dur) st.dur = Math.round(cardio ? rn * 60 : rn); else st.reps = Math.round(rn); }
+    if (!valid2(T, st)) return toast(dur ? (cardio ? 'اكتب عدد الدقائق أولاً' : 'اكتب عدد الثواني أولاً') : T === 'weight_reps' ? 'اكتب الوزن (يجوز صفر) والتكرارات' : 'اكتب عدد التكرارات أولاً', 'er');
     st.status = 'completed'; st.at = Date.now(); buzz(15); if (st.type !== 'warmup') e.effort = null; /* التقييم يبدأ من جديد مع كل مجموعة */
     var pr = false;
     if (T === 'weight_reps' && isWork(st) && st.w > 0) { var pb = priorBest(e.exId, s.id); if (pb > 0 && st.w > pb + 1e-6) { st.pr = true; pr = true; } else delete st.pr; }
@@ -2598,7 +2640,7 @@ function setRow(o) {
       if (s.status === 'active') {
         NEXTUP = nx ? nx.id : null;
         var nxt = e.sets[si + 1], chain = st.type === 'drop' && nxt && nxt.type === 'drop' && nxt.status === 'pending';
-        if (nx) stopRest(); else if (S.set.autoRest && !chain) startRest(restFor(e, st));
+        if (nx) stopRest(); else if (S.set.autoRest && !chain && !cardio) startRest(restFor(e, st));
       }
       redraw();
       if (nx) setTimeout(function () { var el = document.querySelector('.xc.next'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 90);

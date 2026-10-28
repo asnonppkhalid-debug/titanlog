@@ -1,5 +1,5 @@
 /* TITANLOG service worker — يخزّن ملفات التطبيق فقط. بيانات التمارين في IndexedDB ولا يلمسها هذا الملف أبداً. */
-var V = 'titanlog-static-v3.3.0';
+var V = 'titanlog-static-v3.4.0';
 var FILES = ['index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png'];
 var WAIT = 4000; // إذا الشبكة بطيئة/ضعيفة (مثل قاعة التمرين) نفتح النسخة المخزّنة بعد ٤ ثواني بدل ما نعلّق
 // نثبّت بدون ما نستخدم كاش المتصفح حتى نخزّن آخر نسخة فعلاً

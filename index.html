@@ -282,6 +282,11 @@ svg.chart circle.rw{fill:var(--bl);stroke:none;opacity:.35}
 .bmap .bs{fill:var(--s2);stroke:none}
 .bmap .mz{fill:var(--s1);stroke:var(--ln);stroke-width:1.2;cursor:pointer;transition:fill-opacity .35s}
 .bmap .mz.on{stroke:var(--bl)}
+.bmap .mz.sel{stroke:var(--tx);stroke-width:2.4}
+.mread{margin-top:10px;padding:12px 14px;border-radius:14px;background:var(--s2);text-align:center;color:var(--t2);font-size:.9rem;min-height:56px;display:grid;gap:2px;align-content:center}
+.mread.on{color:var(--tx)}
+.mleg{direction:ltr;display:flex;align-items:center;gap:8px;justify-content:center;margin-top:6px;font-size:.72rem;color:var(--t2);font-weight:700}
+.mleg i{width:90px;height:8px;border-radius:9px;background:linear-gradient(90deg,var(--s2),var(--bl))}
 .bmap .ln2{stroke:var(--ln);stroke-width:1.5;fill:none}
 .bmap text{fill:var(--t2);font-size:11px;font-weight:700;font-family:var(--font)}
 .vb{position:relative;height:12px;border-radius:99px;background:var(--s2);overflow:hidden;margin-top:5px}
@@ -352,6 +357,13 @@ button.tag{background:transparent;font-family:inherit;font-size:.74rem;cursor:po
 .stt b{display:block;font-size:.98rem}
 .stt.ok b{color:var(--gn)}
 .stt.no b{color:var(--am)}
+
+/* ===== 3.4 ===== */
+#rest .btn{background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.35)}
+#rest .btn:active{background:rgba(255,255,255,.22)}
+#rest b{color:#fff;font-variant-numeric:tabular-nums}
+#rest .b{color:rgba(255,255,255,.9)}
+input[type=radio]{width:22px;height:22px;min-height:0;accent-color:var(--bl);flex:none}
 
 </style>
 </head>
@@ -445,7 +457,7 @@ var Store = {
   }
 };
 var S = { ex: [], prog: [], ses: [], set: null, img: {}, body: [], photos: [], photosLoaded: false };
-var DEF = { id: 'settings', unit: 'kg', rest: 90, autoRest: true, coach: true, inc: 2.5, theme: 'light', vibrate: true, name: '', wake: true };
+var DEF = { id: 'settings', unit: 'kg', rest: 90, autoRest: true, coach: true, inc: 2.5, theme: 'light', vibrate: true, name: '', wake: true, sound: 'default', soundOn: true };
 function load() {
   return Promise.all([Store.all('exercises'), Store.all('programs'), Store.all('sessions'), Store.all('kv'), Store.all('images'), Store.all('body')]).then(function (r) {
     S.ex = r[0]; S.prog = r[1]; S.ses = r[2]; S.img = {}; S.photos = []; S.photosLoaded = false;
@@ -657,8 +669,8 @@ function progPlan(ex, cfg) {
 }
 function coachFor(ex, cfg) { if (!S.set.coach) return null; return progPlan(ex, cfg); }
 function effortRow(e, edit, redraw) {
-  return h('div', { style: 'margin-top:10px' }, h('div', { class: 'mu xs b' }, 'شكد كانت صعبة؟ (يساعد المدرّب يقرر الزيادة)'),
-    h('div', { class: 'seg', style: 'margin-top:6px' }, [['easy', '😌 سهلة'], ['ok', '👌 مناسبة'], ['hard', '🥵 للفشل']].map(function (o) {
+  return h('div', { style: 'margin-top:10px' }, h('div', { class: 'mu xs b' }, 'شكد كانت صعبة آخر مجموعة؟ (يساعد المدرّب يقرر الزيادة)'),
+    h('div', { class: 'seg', style: 'margin-top:6px' }, [['easy', '😌 سهلة'], ['ok', '👌 مناسبة'], ['hard', '😵 للفشل']].map(function (o) {
       return h('button', { class: e.effort === o[0] ? 'on' : '', 'aria-label': EFFL[o[0]], onclick: function () { e.effort = e.effort === o[0] ? null : o[0]; edit().then(redraw); } }, o[1]);
     })));
 }
@@ -765,17 +777,17 @@ function entryRow(s) {
     h('div', {}, h('div', { class: 'ln1' }, s.name, can ? h('span', { class: 'tag', style: 'margin-inline-start:8px' }, 'لم يكتمل') : null), h('div', { class: 'xs-l' }, meta), names ? h('div', { class: 'xs-l' }, names) : null));
 }
 var JOKES = [
-  'الحديد ما يزعل إذا غبت عنه… بس يشمت 😏',
-  'لا تقارن وزنك بالواقف جنبك، يمكن هو بس واقف وياك للتصوير 😂',
-  'قول لنفسك «آخر مجموعة»، وبعدها كررها ثلاث مرات. هذا قانون الجيم.',
-  'العضلة تكبر وأنت ترتاح، يعني النوم تمرين… تقريباً 😴',
-  'شاي بعد التمرين مو بروتين، بس مقبول عند الجماعة ☕',
-  'اللي يقول «ما عندي وقت للجيم» عنده وقت للتيك توك 😅',
-  'يوم الرجل ما يتأجل… حتى لو بكرة الدرج يصير عدو 🪜',
-  'المرايا بالجيم مو للسيلفي بس. أوكي، كلها للسيلفي 🤳',
-  'الوزن الثقيل مو مشكلة، المشكلة اللي يرفعه بالمزاج وبالغلط. انتبه لظهرك!',
-  'تمرين ناقص أحسن من تمرين ما صار. الجيم ما يحاسبك 💪',
-  'كل وحش كان مبتدئ… وأكيد نسى يسخن أول مرة 😄'
+  'اللي يكول «ما عندي وكت للجيم» عنده وكت للتيك توك 📱',
+  'كلت «آخر مجموعة» وسويت ثلاث بعدها؟ هذا مو كذب، هذا حماس 😄',
+  'يوم الرجل ما يتأجل… حتى لو بكرة الدرج يصير عدوك 🪜',
+  'أصعب تمرين بالجيم: تطلع من البيت 🚪',
+  'اللي تسويه اليوم تشوفه بالمرايا بعد شهر… وبالدرج بعد يومين 😅',
+  'أول يوم جيم حماس، ثاني يوم كل عضلة تسلّم عليك وهي تبجي 😭',
+  'استكان شاي بعد التمرين مو بروتين… بس نقبله منك ☕',
+  'لا تقارن نفسك بالواقف جنبك، يمكن هو جاي يشرب مي بس 🚰',
+  'الحديد ما يزعل إذا غبت، بس أول ما ترجع يثقّل عليك شوية 🏋️',
+  'كل وحش بدأ بوزن خفيف، وبعدين صار يكول للناس «هاي خفيفة» 😎',
+  'المرايا بالجيم مو للسيلفي. طبعاً للسيلفي 🤳'
 ];
 function greeting() {
   var hr = new Date().getHours(), nm = (S.set.name || '').trim(), g = hr < 5 ? 'سهران يا ' + (nm || 'وحش') + '؟ 🌙' : hr < 12 ? 'صباح الخير يا ' + (nm || 'بطل') + ' ☀️' : hr < 17 ? 'هلا والله' + (nm ? ' يا ' + nm : '') + '، شلونك؟' : hr < 21 ? 'مساء الخير يا ' + (nm || 'وحش') + ' 💪' : 'تمرين الليل يا ' + (nm || 'وحش') + '؟ عفية عليك 🌙';
@@ -795,13 +807,13 @@ PAGES.dashboard = function () {
     var nxt = null; for (var i = 1; i <= 7 && !nxt; i++) { var w2 = ((wd - 1 + i) % 7) + 1, dn = pr.days.filter(function (d) { return (d.weekdays || []).indexOf(w2) >= 0; })[0]; if (dn) nxt = { d: dn, w: w2 }; }
     focal = h('div', { class: 'today' }, h('div', { class: 'k' }, 'اليوم · ' + pr.name), h('h1', {}, 'اليوم ما عندك تمرين مجدول… استراحة محارب؟'), h('div', { class: 'mu' }, nxt ? 'التالي: ' + nxt.d.name + ' — ' + WDN[nxt.w] : 'تقدر تبدأ أي يوم من برنامجك.'), h('button', { class: 'btn pri', onclick: function () { go('workout'); } }, 'اختيار تمرين'));
   } else if (!S.ex.length && !S.prog.length && !dd.length) {
-    focal = h('div', { class: 'today' }, h('h1', {}, 'الدفتر فارغ مثل ثلاجة الطالب 😅'), h('div', { class: 'mu' }, 'ثلاث خطوات وتصير وحش:'),
+    focal = h('div', { class: 'today' }, h('h1', {}, 'لسه ماكو شي هنا، نبدي؟ 🙂'), h('div', { class: 'mu' }, 'ثلاث خطوات وتصير وحش:'),
       h('ol', { class: 'steps' }, h('li', {}, 'أضف تمارينك إلى المكتبة'), h('li', {}, 'أنشئ برنامجاً وأيام التدريب'), h('li', {}, 'ابدأ التمرين وسجّل مجموعاتك')),
-      h('div', { class: 'row wrap', style: 'margin-top:14px' }, h('button', { class: 'btn pri', onclick: function () { go('library'); } }, 'فتح المكتبة'), h('button', { class: 'btn', onclick: function () { go('workout'); } }, 'تمرين فارغ')));
-  } else focal = h('div', { class: 'today' }, h('h1', {}, 'يلا ابدأ، الحديد ينتظرك'), h('div', { class: 'mu' }, 'أنشئ برنامجاً أو ابدأ تمريناً فارغاً مباشرة.'), h('div', { class: 'row wrap', style: 'margin-top:14px' }, h('button', { class: 'btn pri', onclick: function () { go('training'); } }, 'إنشاء برنامج'), h('button', { class: 'btn', onclick: function () { go('workout'); } }, 'تمرين فارغ')));
+      h('div', { class: 'row wrap', style: 'margin-top:14px' }, h('button', { class: 'btn pri', onclick: function () { go('library'); } }, 'فتح المكتبة')));
+  } else focal = h('div', { class: 'today' }, h('h1', {}, 'يلا ابدأ، الحديد ينتظرك'), h('div', { class: 'mu' }, 'أنشئ برنامجاً أو خذ قالباً جاهزاً وابدأ.'), h('div', { class: 'row wrap', style: 'margin-top:14px' }, h('button', { class: 'btn pri', onclick: function () { go('training'); } }, 'إنشاء برنامج')));
   root.appendChild(focal);
   var lb = S.set.lastBackup;
-  if (dd.length >= 3 && (!lb || Date.now() - lb > 14 * 864e5)) root.appendChild(h('div', { class: 'warn row' }, h('div', { class: 'g' }, lb ? 'صار لك أكثر من أسبوعين بدون نسخة احتياطية، عيب 😅' : 'ما سويت نسخة احتياطية! لا تخلي تعبك يروح إذا الموبايل انكسر 😬'), h('button', { class: 'btn s', onclick: exportAsk }, 'سوّ نسخة الآن')));
+  if (dd.length >= 3 && (!lb || Date.now() - lb > 14 * 864e5)) root.appendChild(h('div', { class: 'warn row' }, h('div', { class: 'g' }, lb ? 'صار لك أكثر من أسبوعين بدون نسخة احتياطية. صدّر وحدة هسة 🙂' : 'ما سويت نسخة احتياطية! لا تخلي تعبك يروح إذا الموبايل انكسر 😬'), h('button', { class: 'btn s', onclick: exportAsk }, 'سوّ نسخة الآن')));
   root.appendChild(rankCard());
   var pbd = progBoard(); if (pbd) root.appendChild(pbd);
   if (dd.length || pr) {
@@ -868,6 +880,72 @@ function topTrends() {
   return c.sort(function (a, b) { return b.pts.length - a.pts.length; }).slice(0, 1);
 }
 
+/* ===== صوت انتهاء الراحة: افتراضي، أو تختاره (نغمات جاهزة / ملف من جهازك) ===== */
+/* ساعة رقمية للمؤقتات: 1:30 أو 1:05:30 (بدون حروف، حتى ما تنقلب بالاتجاه) */
+function fmtClock(sec) { sec = Math.max(0, Math.floor(sec)); var h0 = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60, p = function (n) { return n < 10 ? '0' + n : String(n); }; return h0 ? h0 + ':' + p(m) + ':' + p(s) : m + ':' + p(s); }
+var SNDS = [['default', 'افتراضي', 'بيب بيب'], ['bell', 'جرس', 'رنّة هادية'], ['chime', 'نغمة', 'ثلاث نوتات'], ['drum', 'طبلة', 'دقّتين']];
+var SND_MAX = 1024 * 1024;
+var sndCtx = null, sndCustom;
+function sndAC() {
+  try { if (!sndCtx) sndCtx = new (window.AudioContext || window.webkitAudioContext)(); if (sndCtx.state === 'suspended') sndCtx.resume(); return sndCtx; } catch (e) { return null; }
+}
+document.addEventListener('pointerdown', function () { if (S.set && S.set.soundOn !== false) sndAC(); }, { passive: true });
+function sndTone(ac, t, f, dur, type, vol, f2) {
+  var o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + dur + 0.05);
+}
+function sndSynth(kind) {
+  var ac = sndAC(); if (!ac) return false; var t = ac.currentTime + 0.02;
+  if (kind === 'bell') { sndTone(ac, t, 660, 1.3, 'sine', 0.5); sndTone(ac, t, 1320, 0.9, 'sine', 0.18); sndTone(ac, t, 1980, 0.5, 'sine', 0.08); }
+  else if (kind === 'chime') { sndTone(ac, t, 523, 0.45, 'triangle', 0.4); sndTone(ac, t + 0.18, 659, 0.45, 'triangle', 0.4); sndTone(ac, t + 0.36, 784, 0.8, 'triangle', 0.4); }
+  else if (kind === 'drum') { sndTone(ac, t, 170, 0.32, 'sine', 0.9, 55); sndTone(ac, t + 0.3, 170, 0.32, 'sine', 0.9, 55); }
+  else { sndTone(ac, t, 880, 0.16, 'square', 0.16); sndTone(ac, t + 0.24, 880, 0.16, 'square', 0.16); sndTone(ac, t + 0.48, 1175, 0.3, 'square', 0.16); }
+  return true;
+}
+function sndLoad() {
+  if (sndCustom !== undefined) return Promise.resolve(sndCustom);
+  return Store.all('kv').then(function (r) { var x = (r || []).filter(function (k) { return k.id === 'restsound'; })[0]; sndCustom = x && typeof x.data === 'string' ? x : null; return sndCustom; }, function () { return null; });
+}
+function soundWarm() { if (S.set.sound === 'custom') sndLoad(); }
+function sndPlay(kind) {
+  if (kind === 'custom') {
+    return sndLoad().then(function (x) { if (!x) return sndSynth('default'); try { var a = new Audio(x.data); var p = a.play(); if (p && p.catch) p.catch(function () { sndSynth('default'); }); } catch (e) { sndSynth('default'); } });
+  }
+  return Promise.resolve(sndSynth(kind));
+}
+function playRestSound() { if (S.set.soundOn === false) return; sndPlay(S.set.sound || 'default'); }
+function soundSection(sv) {
+  var wrap = h('div');
+  function draw() {
+    var cur = S.set.sound || 'default', on = S.set.soundOn !== false, rows = [];
+    SNDS.forEach(function (o) {
+      rows.push(h('label', { class: 'row', style: 'padding:12px 16px;min-height:52px' }, h('input', { type: 'radio', name: 'rsnd', checked: cur === o[0], onchange: function () { S.set.sound = o[0]; sv().then(function () { sndPlay(o[0]); draw(); }); } }), h('span', { class: 'g' }, h('span', { class: 'b' }, o[1]), h('span', { class: 'mu sm' }, ' · ' + o[2]))));
+    });
+    var fileIn = h('input', { type: 'file', accept: 'audio/*', style: 'display:none', onchange: function (ev) {
+      var f = ev.target.files[0]; ev.target.value = ''; if (!f) return;
+      if (f.size > SND_MAX) return toast('الملف كبير. اختار صوت أقصر (أقل من ١ ميغابايت)', 'er');
+      var fr = new FileReader();
+      fr.onerror = function () { toast('تعذّرت قراءة الملف', 'er'); };
+      fr.onload = function () {
+        var data = String(fr.result), probe = new Audio();
+        probe.onerror = function () { toast('هذا الملف ما ينفتح كصوت، جرّب mp3 أو wav', 'er'); };
+        probe.oncanplay = function () {
+          var rec = { id: 'restsound', name: f.name, data: data };
+          Store.put('kv', rec).then(function () { sndCustom = rec; S.set.sound = 'custom'; return sv(); }).then(function () { draw(); sndPlay('custom'); toast('انحفظ صوتك ✔', 'ok'); }, function () { toast('تعذّر حفظ الصوت', 'er'); });
+        };
+        probe.src = data;
+      };
+      fr.readAsDataURL(f);
+    } });
+    rows.push(h('div', { class: 'row', style: 'padding:12px 16px;min-height:52px;border-top:1px solid var(--ln)' }, h('span', { class: 'g' }, h('span', { class: 'b' }, 'ملف من جهازك'), h('span', { class: 'mu sm' }, sndCustom && cur === 'custom' ? ' · ' + sndCustom.name : ' · اختار صوت تحبه')),
+      h('button', { class: 'btn s', onclick: function () { fileIn.click(); } }, 'اختيار'), cur === 'custom' ? h('span', { class: 'tag gn', style: 'margin-inline-start:8px' }, 'مفعّل') : null), fileIn);
+    wrap.replaceChildren(h('div', { class: 'grp' }, h('label', { class: 'row', style: 'padding:14px 16px;min-height:56px' }, h('input', { type: 'checkbox', checked: on, onchange: function (e) { S.set.soundOn = e.target.checked; sv().then(draw); } }), h('span', { class: 'g' }, 'صوت عند انتهاء الراحة'))),
+      on ? h('div', { class: 'grp', style: 'margin-top:10px' }, rows) : null,
+      on ? h('div', { class: 'row', style: 'margin-top:10px' }, h('button', { class: 'btn s', onclick: function () { sndPlay(S.set.sound || 'default'); } }, '▶ جرّب الصوت'), h('span', { class: 'mu xs g' }, 'الصوت يشتغل والتطبيق مفتوح. ملفك الصوتي ما يدخل النسخة الاحتياطية.')) : null);
+  }
+  draw(); return wrap;
+}
 /* ====== الشخصية والملصقات والرتب (كلها تُحسب من سجلّك الحقيقي) ====== */
 function mascotSvg(mood, size) {
   var eyes, mouth, arms, extra = '';
@@ -956,11 +1034,11 @@ function computeStickers(cm) {
     fam('pr', '#E0A400', 'medal', [1, 10, 30], ['كسّار الأرقام', 'صائد الأرقام', 'محطّم الأرقام'], function (i) { return i === 1 ? 'اكسر رقمك القياسي بتمرين وزن' : 'اكسر ' + [1, 10, 30][i - 1] + ' رقم قياسي بتمارين الوزن'; }, prN, 0, 'رقم'),
     fam('vol', '#14808F', 'plate', TV, ['عشرة طن', 'خمسين طن', 'مصنع حديد'], function (i) { return 'مجموع الأوزان اللي رفعتها يوصل ' + fmtN(TV[i - 1] / 1000, 0) + ' طن'; }, vol, 1000, 'طن'),
     fam('legs', '#0E9AA7', 'shield', [30, 100, 300], ['ملك الأرجل', 'ما يهاب يوم الرجل', 'جبل الأرجل'], function (i) { return 'خلّص ' + [30, 100, 300][i - 1] + ' مجموعة عمل للأرجل'; }, legSets, 0, 'مجموعة'),
-    fam('body', '#3D8EB9', 'scale', [5, 20, 60], ['ميزان الصدق', 'صاحب الميزان', 'ما يخاف الميزان'], function (i) { return 'سجّل وزنك بـ ' + dayTxt([5, 20, 60][i - 1]); }, bodyN, 0, 'يوم'),
+    fam('body', '#3D8EB9', 'scale', [4, 12, 26], ['ميزان الصدق', 'صاحب الميزان', 'ما يخاف الميزان'], function (i) { return 'سجّل وزنك ' + [4, 12, 26][i - 1] + ' مرة (مرة بالأسبوع)'; }, bodyN, 0, 'مرة'),
     fam('chal', '#C2185B', 'target', [3, 12, 30], ['قبلت التحدي', 'ما يرد تحدي', 'بطل التحديات'], function (i) { return 'أنجز ' + arN([3, 12, 30][i - 1], 'تحدي', 'تحديين', 'تحديات', 'تحدياً') + ' من تحديات الشهر'; }, chN, 0, 'تحدي'),
     { id: 'am', t: 'طير الصبح', d: 'ابدأ تمرين قبل الساعة ٨ الصبح', c: '#F08A24', g: 'sun', e: morning, p: null },
     { id: 'pm', t: 'بومة الجيم', d: 'ابدأ تمرين بعد الساعة ١٠ بالليل', c: '#37406B', g: 'moon', e: night, p: null },
-    { id: 'fri', t: 'جمعة الوحوش', d: 'تمرين يوم الجمعة، وانت قايم من الفطور 😄', c: '#2E7D5B', g: 'flame', e: fri, p: null },
+    { id: 'fri', t: 'جمعة الوحوش', d: 'تمرين يوم الجمعة (يوم العطلة) 😄', c: '#2E7D5B', g: 'flame', e: fri, p: null },
     { id: 'bk', t: 'حارس البيانات', d: 'صدّر نسخة احتياطية', c: '#5B6475', g: 'lock', e: !!S.set.lastBackup, p: null }
   ];
 }
@@ -1227,7 +1305,7 @@ function warmupSheet(s, e, edit, redraw) {
   function draw() {
     var v = num(inp.value); plan = v > 0 ? warmupPlan(v, ex) : [];
     box.replaceChildren(!(v > 0) ? h('div', { class: 'mu sm' }, 'اكتب وزن أول مجموعة عمل لأحسب لك الإحماء.') : !plan.length ? h('div', { class: 'mu sm' }, 'هذا الوزن خفيف، ما يحتاج إحماء إضافي. تكدر تسوي مجموعة خفيفة بنفس الحركة.') :
-      h('div', { style: 'display:grid;gap:6px' }, plan.map(function (r, i) { return h('div', { class: 'row sb' }, h('span', { class: 'b' }, 'إحماء ' + (i + 1)), h('span', { class: 'b ltr' }, fmtN(r.w, 2) + ' ' + UL() + ' × ' + r.reps)); })));
+      h('div', { style: 'display:grid;gap:6px' }, plan.map(function (r, i) { return h('div', { class: 'row sb' }, h('span', { class: 'b' }, 'إحماء ' + (i + 1)), h('span', { class: 'b' }, h('bdi', { class: 'ltr' }, fmtN(r.w, 2)), ' ' + UL() + ' × ', h('bdi', { class: 'ltr' }, String(r.reps)), ' تكرار')); })));
   }
   draw();
   sheet('إحماء ' + (ex ? ex.name : e.name), h('div', {}, h('p', { class: 'mu sm' }, 'مجموعات خفيفة تدرّجية قبل مجموعات العمل (٤٠٪ ← ٦٠٪ ← ٨٠٪ من وزن العمل). نسب شائعة بين المدربين، مو قانون ثابت. عدّلها على كيفك.'), field('وزن أول مجموعة عمل (' + UL() + ')', inp), box),
@@ -1240,7 +1318,7 @@ function warmupSheet(s, e, edit, redraw) {
 
 /* --- نوع المجموعة --- */
 var STYPES = [['working', 'مجموعة عمل', 'المجموعة الأساسية اللي تحسب بتقدّمك وأرقامك.'], ['warmup', 'إحماء', 'خفيفة قبل الأساسية. ما تدخل بالأرقام القياسية ولا باقتراحات الزيادة.'], ['drop', 'دروب سِت', 'تنزّل الوزن وتكمل مباشرة بدون راحة. تنحسب بالحجم، وما تدخل باقتراحات الزيادة.'], ['failure', 'للفشل', 'مجموعة وصلت فيها لآخر تكرار تقدر تسويه. تنحسب كمجموعة عمل عادية.']];
-var STBADGE = { warmup: 'إح', drop: 'د', failure: 'ف' };
+var STBADGE = { warmup: '🔥', drop: 'د', failure: 'ف' };
 function typeSheet(st, redraw, edit) {
   var close = sheet('نوع المجموعة', h('div', { style: 'display:grid;gap:8px' }, STYPES.map(function (t) {
     var on = (st.type || 'working') === t[0];
@@ -1355,11 +1433,17 @@ function bodyWeights() { return bodySorted().filter(function (x) { return x.w !=
 /* ملخص الوزن: متوسط آخر ٧ أيام، ومقارنته بمتوسط ٧ أيام قبل ٤ أسابيع، أو بأول أسبوع سجّلته */
 function bodySummary() {
   var ws = bodyWeights(); if (!ws.length) return null;
-  var last = ws[ws.length - 1], d = dayNum(last.date), cur = wAvg(ws, d, 7), prev = wAvg(ws, d - 28, 7), first = ws.length > 1 ? wAvg(ws, dayNum(ws[0].date) + 6, 7) : null, ref = null, label = '';
+  var last = ws[ws.length - 1], d = dayNum(last.date), cur = wAvg(ws, d, 7), prev = wAvg(ws, d - 28, 10), first = ws.length > 1 ? wAvg(ws, dayNum(ws[0].date) + 6, 7) : null, ref = null, label = '';
   if (prev && prev.n) { ref = prev; label = 'عن قبل ٤ أسابيع'; }
   else if (first && d - dayNum(ws[0].date) >= 14) { ref = first; label = 'عن أول أسبوع سجّلته'; }
   return { last: last, cur: cur, delta: ref ? cur.avg - ref.avg : null, label: label, n: ws.length };
 }
+/* تسجيل وزن/قياسات وصورة تقدّم: مرة كل ٧ أيام */
+var WK = 7;
+function waitDays(dates) { if (!dates.length) return 0; var last = dates.reduce(function (a, b) { return a > b ? a : b; }), left = WK - (dayNum(ymd(Date.now())) - dayNum(last)); return left > 0 ? left : 0; }
+function bodyWait() { return waitDays(S.body.map(function (x) { return x.date; })); }
+function photoWait() { return waitDays(S.photos.map(function (x) { return x.date; })); }
+function waitTxt(n) { return n === 1 ? 'بعد يوم' : n === 2 ? 'بعد يومين' : 'بعد ' + n + ' أيام'; }
 function deltaTxt(kg) { var v = kgTo(Math.abs(kg)); return (kg > 0.0001 ? '+' : kg < -0.0001 ? '−' : '') + fmtN(v, 1) + ' ' + UL(); }
 function bodyChart(ws, days) {
   var end = dayNum(ws[ws.length - 1].date), start = days ? end - days : dayNum(ws[0].date), pts = ws.filter(function (x) { return dayNum(x.date) >= start; });
@@ -1379,14 +1463,15 @@ function bodyChart(ws, days) {
 function saveBody(e) { if (S.body.indexOf(e) < 0) S.body.push(e); return persist('body', e); }
 function bodyForm(ent) {
   var today = ymd(Date.now()), lb = S.set.unit === 'lb';
-  var date = h('input', { type: 'date', value: ent ? ent.date : today, max: today, disabled: !!ent, 'aria-label': 'التاريخ' });
+  if (!ent && bodyWait() > 0) return toast('تسجيل الجسم مرة كل ٧ أيام. الجاي ' + waitTxt(bodyWait()), 'er');
+  var date = h('input', { type: 'date', value: ent ? ent.date : today, max: today, disabled: true, 'aria-label': 'التاريخ' });
   var w = h('input', { type: 'text', inputmode: 'decimal', dir: 'ltr', value: ent && ent.w != null ? fmtN(kgTo(ent.w), 1) : '', placeholder: 'مثلاً ' + (lb ? '180' : '82.4'), 'aria-label': 'الوزن', style: 'font-size:1.3rem;font-weight:700;text-align:center' });
   var ms = {}; BM.forEach(function (k) { ms[k[0]] = h('input', { type: 'text', inputmode: 'decimal', dir: 'ltr', value: ent && ent.m && ent.m[k[0]] != null ? fmtN(ent.m[k[0]], 1) : '', placeholder: 'سم', 'aria-label': k[1] }); });
   var hasM = ent && ent.m && BM.some(function (k) { return ent.m[k[0]] != null; });
   var body = h('div', {}, field('التاريخ', date), field('الوزن (' + UL() + ')', w),
     h('details', { open: !!hasM, style: 'margin-top:8px' }, h('summary', { class: 'b', style: 'cursor:pointer;color:var(--bl);min-height:40px' }, 'قياسات الجسم (اختياري، بالسنتيمتر)'),
       h('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px' }, BM.map(function (k) { return field(k[1], ms[k[0]]); }))),
-    h('p', { class: 'mu xs', style: 'margin-top:10px' }, 'الوزن يتذبذب كل يوم (ماي، أكل، ملح). ما يهم رقم اليوم، المهم المتوسط، والتطبيق يحسبه لك.'));
+    h('p', { class: 'mu xs', style: 'margin-top:10px' }, 'وزّن نفسك مرة بالأسبوع، بنفس الوقت وبنفس الظروف (مثلاً الصبح قبل الأكل). هيج المقارنة تطلع صادقة.'));
   var close = sheet(ent ? 'تعديل التسجيل' : 'سجّل جسمك', body, function (c) { return [h('button', { class: 'btn', onclick: c }, 'إلغاء'), h('button', { class: 'btn pri', onclick: function () {
     var d = ent ? ent.date : date.value; if (!DATE_RE.test(d) || d > today) return toast('اختر تاريخ صحيح (مو بالمستقبل)', 'er');
     var out = { w: undefined, m: {} }, wn = num(w.value);
@@ -1421,8 +1506,9 @@ function weightNear(date) {
   return best ? best.w : null;
 }
 function photoAdd(file, after) {
+  if (photoWait() > 0) return toast('صورة التقدّم مرة كل ٧ أيام. الجاية ' + waitTxt(photoWait()), 'er');
   Promise.all([imgResize(file, 1080, 0.78), imgResize(file, 240, 0.72)]).then(function (r) {
-    var full = r[0], th = r[1], today = ymd(Date.now()), date = h('input', { type: 'date', value: today, max: today, 'aria-label': 'التاريخ' }), pose = sel(['front', 'side', 'back', 'other'], 'front', null, function (k) { return POSES[k]; });
+    var full = r[0], th = r[1], today = ymd(Date.now()), date = h('input', { type: 'date', value: today, max: today, disabled: true, 'aria-label': 'التاريخ' }), pose = sel(['front', 'side', 'back', 'other'], 'front', null, function (k) { return POSES[k]; });
     sheet('صورة جديدة', h('div', {}, h('img', { src: th, alt: 'معاينة', style: 'width:120px;height:auto;border-radius:12px;display:block;margin:0 auto 12px' }), field('التاريخ', date), field('الوضعية', pose), h('p', { class: 'mu xs' }, 'الصورة تنحفظ على جهازك فقط. ما تنرفع لأي مكان.')),
       function (c) { return [h('button', { class: 'btn', onclick: c }, 'إلغاء'), h('button', { class: 'btn pri', onclick: function () {
         if (!DATE_RE.test(date.value) || date.value > today) return toast('اختر تاريخ صحيح', 'er');
@@ -1450,10 +1536,10 @@ function photoCompare(a, b) {
 }
 function photosBlock(box, redraw) {
   var idb = Store.mode === 'idb', inp = h('input', { type: 'file', accept: 'image/*', style: 'display:none', onchange: function (ev) { var f = ev.target.files[0]; ev.target.value = ''; if (f) photoAdd(f, redraw); } });
-  var head = h('div', { class: 'sec-h' }, h('h2', {}, 'صور التقدّم'), idb ? h('button', { class: 'btn s', onclick: function () { inp.click(); } }, '📷 أضف صورة') : null);
+  var head = h('div', { class: 'sec-h' }, h('h2', {}, 'صور التقدّم'), idb ? (photoWait() > 0 ? h('button', { class: 'btn s', onclick: function () { toast('صورة التقدّم مرة كل ٧ أيام. الجاية ' + waitTxt(photoWait()), 'er'); }, style: 'opacity:.55' }, '📷 ' + waitTxt(photoWait())) : h('button', { class: 'btn s', onclick: function () { inp.click(); } }, '📷 أضف صورة')) : null);
   if (!idb) return box.appendChild(h('div', { class: 'sec' }, head, h('div', { class: 'warn' }, 'الصور تحتاج قاعدة بيانات المتصفح، وهي غير متاحة هنا.')));
   var s = S.photos.slice().sort(function (x, y) { return y.date < x.date ? -1 : y.date > x.date ? 1 : (y.at - x.at); }), body = [];
-  if (!s.length) body.push(h('div', { class: 'grp' }, emptyBox('ماكو صور بعد', 'صوّر نفس الوضعية كل كم أسبوع، وبعد فترة قارن بين أول صورة وآخر وحدة. الصور تبقى على جهازك بس.', h('button', { class: 'btn pri', onclick: function () { inp.click(); } }, '📷 أول صورة'))));
+  if (!s.length) body.push(h('div', { class: 'grp' }, emptyBox('ماكو صور بعد', 'صوّر نفس الوضعية مرة بالأسبوع، وبعد فترة قارن بين أول صورة وآخر وحدة. الصور تبقى على جهازك بس.', h('button', { class: 'btn pri', onclick: function () { inp.click(); } }, '📷 أول صورة'))));
   else {
     body.push(h('div', { class: 'ph-grid' }, s.map(function (p) { return h('button', { class: 'ph', onclick: function () { photoView(p, redraw); }, 'aria-label': photoInfo(p) }, h('img', { src: p.th, alt: '' }), h('span', {}, shortDate(p.date), h('br'), POSES[p.pose || 'other'])); })));
     if (s.length >= 2) { var old = s[s.length - 1], nw = s[0]; body.push(h('button', { class: 'btn f', style: 'margin-top:10px', onclick: function () { photoCompare(old, nw); } }, 'قبل وبعد: الأقدم مقابل الأحدث')); }
@@ -1462,18 +1548,18 @@ function photosBlock(box, redraw) {
 }
 PAGES.body = function () {
   var root = h('div', { class: 'page' }), range = 90, holder = h('div');
-  root.appendChild(h('div', { class: 'top' }, h('div', { class: 'row' }, backBtn('progress'), h('h1', {}, 'جسمك')), h('button', { class: 'btn pri s', onclick: function () { bodyForm(null); } }, ic('plus'), 'سجّل')));
+  root.appendChild(h('div', { class: 'top' }, h('div', { class: 'row' }, backBtn('progress'), h('h1', {}, 'جسمك')), h('button', { class: 'btn pri s', style: bodyWait() > 0 ? 'opacity:.55' : '', onclick: function () { bodyForm(null); } }, bodyWait() > 0 ? waitTxt(bodyWait()) : [ic('plus'), 'سجّل'])));
   root.appendChild(holder);
   function draw() {
     var out = [], sm = bodySummary(), all = bodySorted();
-    if (!all.length) out.push(h('div', { class: 'grp' }, emptyBox('ماكو تسجيل بعد', 'سجّل وزنك (وقياساتك إذا تريد) أول مرة، وتطلع الرسوم والمتوسط تلقائياً. كله على جهازك بس.', h('button', { class: 'btn pri', onclick: function () { bodyForm(null); } }, 'سجّل الحين'), 'hi')));
+    if (!all.length) out.push(h('div', { class: 'grp' }, emptyBox('ماكو تسجيل بعد', 'سجّل وزنك (وقياساتك إذا تريد) أول مرة، وبعدها مرة كل أسبوع. الرسوم تطلع تلقائياً وكله على جهازك بس.', h('button', { class: 'btn pri', onclick: function () { bodyForm(null); } }, 'سجّل الحين'), 'hi')));
     if (sm) {
-      out.push(h('div', { class: 'grp pad' }, h('div', { class: 'mu xs' }, 'وزنك (متوسط آخر ٧ أيام)'), h('div', { class: 'b ltr', style: 'font-size:2rem' }, fmtN(kgTo(sm.cur.avg), 1) + ' ' + UL()),
+      out.push(h('div', { class: 'grp pad' }, h('div', { class: 'mu xs' }, 'وزنك الحالي'), h('div', { class: 'b ltr', style: 'font-size:2rem' }, fmtN(kgTo(sm.cur.avg), 1) + ' ' + UL()),
         sm.delta != null ? h('div', { class: 'sm' }, h('span', { class: 'b ltr' }, deltaTxt(sm.delta)), ' ' + sm.label) : h('div', { class: 'mu sm' }, 'سجّل أكثر لنقارن عبر الزمن'),
-        h('div', { class: 'mu xs', style: 'margin-top:6px' }, 'آخر تسجيل: ' + fmtN(kgTo(sm.last.w), 1) + ' ' + UL() + ' (' + sm.last.date + ') · ' + sm.n + ' تسجيل')));
+        h('div', { class: 'mu xs', style: 'margin-top:6px' }, 'آخر تسجيل: ' + sm.last.date + ' · ' + sm.n + ' تسجيل · ' + (bodyWait() > 0 ? 'الجاي ' + waitTxt(bodyWait()) : 'تقدر تسجّل هسة'))));
       var seg = h('div', { class: 'seg', style: 'margin-bottom:8px' }, [[30, '٣٠ يوم'], [90, '٩٠ يوم'], [365, 'سنة'], [0, 'الكل']].map(function (o) { return h('button', { class: range === o[0] ? 'on' : '', onclick: function () { range = o[0]; draw(); } }, o[1]); }));
       var ch = bodyChart(bodyWeights(), range);
-      out.push(h('div', { class: 'sec' }, h('h2', {}, 'منحنى الوزن'), h('div', { class: 'grp pad' }, seg, ch || h('div', { class: 'mu sm' }, 'ما يكفي تسجيلات بهالفترة (أقل شي تسجيلين).'), h('div', { class: 'mu xs', style: 'margin-top:6px' }, 'النقاط = تسجيلاتك، والخط = متوسط ٧ أيام.'))));
+      out.push(h('div', { class: 'sec' }, h('h2', {}, 'منحنى الوزن'), h('div', { class: 'grp pad' }, seg, ch || h('div', { class: 'mu sm' }, 'ما يكفي تسجيلات بهالفترة (أقل شي تسجيلين).'), h('div', { class: 'mu xs', style: 'margin-top:6px' }, 'النقاط = تسجيلاتك، والخط يربط بين تسجيلاتك.'))));
     }
     var mk = BM.filter(function (k) { return all.some(function (x) { return x.m && x.m[k[0]] != null; }); });
     if (mk.length) out.push(h('div', { class: 'sec' }, h('h2', {}, 'قياساتك (سم)'), h('div', { class: 'grp' }, mk.map(function (k) {
@@ -1512,70 +1598,62 @@ function activeProgMuscles() {
   if (p) p.days.forEach(function (d) { d.exercises.forEach(function (e) { var x = exById(e.exId); if (x && x.muscle && x.muscle !== 'other' && x.muscle !== 'full_body') out[x.muscle] = 1; }); });
   return out;
 }
-/* ---- رسم الجسم (أمام + خلف) ---- */
+/* ---- رسم الجسم (أمام + خلف). الإحداثيات نصف الجسم اليمين حول المحور، والنصف الثاني مرآة ---- */
 var BMAP = {
   front: [
-    ['shoulders', 'M22 52 Q34 46 42 54 Q42 70 34 74 Q22 72 20 62 Z', 1], ['chest', 'M42 56 Q54 52 64 58 L64 82 Q52 90 40 82 Q38 68 42 56 Z', 1], ['traps', 'M58 44 Q48 48 40 54 L56 58 Z', 1],
-    ['biceps', 'M18 70 Q26 72 33 76 L31 106 Q24 110 16 106 Q14 88 18 70 Z', 1], ['forearms', 'M15 110 Q23 113 30 110 L27 146 Q20 150 13 146 Q12 128 15 110 Z', 1],
-    ['quadriceps', 'M40 146 L64 146 L62 206 Q52 212 42 206 Q38 176 40 146 Z', 1], ['calves', 'M43 212 Q52 216 61 212 L59 262 Q51 266 45 262 Q42 238 43 212 Z', 1],
-    ['abs', 'M53 88 L77 88 L76 132 Q65 138 54 132 Z', 0]
+    ['traps', 'M3 40 Q16 42 27 50 L9 55 Z', 1], ['shoulders', 'M28 50 Q43 47 48 61 Q49 73 41 81 Q32 73 28 50 Z', 1], ['chest', 'M2 57 Q17 52 28 57 Q32 71 30 81 Q16 89 2 83 Z', 1],
+    ['abs', 'M-11 89 L11 89 L10 134 Q0 141 -10 134 Z', 0], ['biceps', 'M41 83 Q51 85 53 97 L50 118 Q43 122 39 118 Q37 99 41 83 Z', 1], ['forearms', 'M39 123 Q47 125 52 123 L54 162 Q48 169 42 163 Z', 1],
+    ['quadriceps', 'M3 152 Q20 147 35 153 Q38 190 31 219 Q19 225 8 219 Q2 190 3 152 Z', 1], ['calves', 'M10 228 Q20 232 30 228 L28 270 Q20 277 13 270 Z', 1]
   ],
   back: [
-    ['traps', 'M195 46 Q180 50 168 58 L195 90 Z', 1], ['back', 'M166 62 Q180 70 195 92 L195 134 Q178 134 168 118 Q160 90 166 62 Z', 1], ['shoulders', 'M152 52 Q164 46 172 54 Q172 70 164 74 Q152 72 150 62 Z', 1],
-    ['triceps', 'M148 70 Q156 72 163 76 L161 106 Q154 110 146 106 Q144 88 148 70 Z', 1], ['forearms', 'M145 110 Q153 113 160 110 L157 146 Q150 150 143 146 Q142 128 145 110 Z', 1],
-    ['glutes', 'M195 136 Q180 134 170 142 Q166 158 176 166 Q190 168 195 160 Z', 1], ['hamstrings', 'M170 168 Q182 172 194 168 L192 208 Q182 214 172 208 Q168 188 170 168 Z', 1], ['calves', 'M173 214 Q182 218 191 214 L189 262 Q181 266 175 262 Q172 238 173 214 Z', 1]
+    ['traps', 'M2 40 Q15 42 27 50 L2 84 Z', 1], ['back', 'M2 88 L29 58 Q39 88 32 115 Q19 131 2 129 Z', 1], ['shoulders', 'M28 50 Q43 47 48 61 Q49 73 41 81 Q32 73 28 50 Z', 1],
+    ['triceps', 'M41 83 Q51 85 53 97 L50 118 Q43 122 39 118 Q37 99 41 83 Z', 1], ['forearms', 'M39 123 Q47 125 52 123 L54 162 Q48 169 42 163 Z', 1],
+    ['glutes', 'M2 141 Q20 135 33 147 Q37 167 22 173 Q8 173 2 165 Z', 1], ['hamstrings', 'M3 177 Q20 175 35 179 Q35 205 31 221 Q19 227 8 221 Q2 200 3 177 Z', 1], ['calves', 'M10 228 Q20 232 30 228 L28 270 Q20 277 13 270 Z', 1]
   ]
 };
-function mirrorPath(p, cx) { var t = p.match(/[MLQCZ]|-?\d+(?:\.\d+)?/g), o = [], k = 0; t.forEach(function (x) { if (/[MLQCZ]/.test(x)) { o.push(x); k = 0; } else { o.push(k % 2 === 0 ? String(2 * cx - parseFloat(x)) : x); k++; } }); return o.join(' '); }
+var BODY_BASE = 'M-8 36 L-31 47 Q-47 52 -49 68 L-47 118 L-52 166 Q-50 176 -41 176 Q-37 150 -36 124 L-34 92 Q-31 122 -27 142 L-31 160 L-34 222 L-30 280 Q-20 286 -11 280 L-9 226 L0 188 L9 226 L11 280 Q20 286 30 280 L34 222 L31 160 L27 142 Q31 122 34 92 L36 124 Q37 150 41 176 Q50 176 52 166 L47 118 L49 68 Q47 52 31 47 L8 36 Z';
 function bodyMapSvg(counts, hi, onTap) {
-  var svg = document.createElementNS(SVGNS, 'svg'); svg.setAttribute('viewBox', '0 0 260 285'); svg.setAttribute('class', 'bmap'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'خريطة العضلات حسب مجموعات الأسبوع');
-  function region(m, d) { var n = counts[m] ? counts[m].n : 0, op = n > 0 ? (0.28 + 0.72 * Math.min(1, n / hi)).toFixed(2) : 0; return '<path d="' + d + '" data-m="' + m + '" class="mz' + (n > 0 ? ' on' : '') + '" style="' + (n > 0 ? 'fill:var(--bl);fill-opacity:' + op : '') + '"><title>' + MUS[m] + ': ' + n + ' مجموعة</title></path>'; }
+  var svg = document.createElementNS(SVGNS, 'svg'); svg.setAttribute('viewBox', '0 0 300 306'); svg.setAttribute('class', 'bmap'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'نموذج العضلات: اضغط على عضلة لتشوف كم مجموعة لعبتها');
+  function region(m, d, flip) { var n = counts[m] ? counts[m].n : 0, op = n > 0 ? (0.3 + 0.7 * Math.min(1, n / hi)).toFixed(2) : 0; return '<path d="' + d + '"' + (flip ? ' transform="scale(-1 1)"' : '') + ' data-m="' + m + '" class="mz' + (n > 0 ? ' on' : '') + '" style="' + (n > 0 ? 'fill:var(--bl);fill-opacity:' + op : '') + '"></path>'; }
   var g = '';
-  [['front', 65, 'أمام'], ['back', 195, 'خلف']].forEach(function (v) {
-    var cx = v[1];
-    g += '<g transform="translate(' + (v[0] === 'front' ? 130 : -130) + ' 0)"><circle class="bs" cx="' + cx + '" cy="24" r="15"/><rect class="bs" x="' + (cx - 7) + '" y="36" width="14" height="12" rx="4"/>';
-    g += '<path class="bs" d="M' + (cx - 32) + ' 54 Q' + cx + ' 44 ' + (cx + 32) + ' 54 L' + (cx + 28) + ' 112 Q' + (cx + 26) + ' 128 ' + (cx + 23) + ' 144 L' + (cx - 23) + ' 144 Q' + (cx - 26) + ' 128 ' + (cx - 28) + ' 112 Z"/>';
-    BMAP[v[0]].forEach(function (r) { g += region(r[0], r[1]); if (r[2]) g += region(r[0], mirrorPath(r[1], cx)); });
-    if (v[0] === 'front') g += '<path class="ln2" d="M54 102 L76 102 M54 116 L76 116"/>';
-    g += '<ellipse class="bs" cx="' + (cx - 48) + '" cy="154" rx="6" ry="8"/><ellipse class="bs" cx="' + (cx + 48) + '" cy="154" rx="6" ry="8"/>';
-    g += '<text x="' + cx + '" y="282" text-anchor="middle">' + v[2] + '</text></g>';
+  [['front', 78, 'أمام'], ['back', 222, 'خلف']].forEach(function (v) {
+    g += '<g transform="translate(' + v[1] + ' 8)"><path class="bs" d="' + BODY_BASE + '"/><circle class="bs" cx="0" cy="18" r="15"/>';
+    BMAP[v[0]].forEach(function (r) { g += region(r[0], r[1], false); if (r[2]) g += region(r[0], r[1], true); });
+    if (v[0] === 'front') g += '<path class="ln2" d="M-10 103 L10 103 M-10 117 L10 117 M0 91 L0 136"/>';
+    else g += '<path class="ln2" d="M0 44 L0 128"/>';
+    g += '<text x="0" y="298" text-anchor="middle">' + v[2] + '</text></g>';
   });
   svg.innerHTML = g;
   svg.addEventListener('click', function (ev) { var m = ev.target && ev.target.getAttribute && ev.target.getAttribute('data-m'); if (m && onTap) onTap(m); });
   return svg;
 }
 function volSection() {
-  var box = h('div', { class: 'sec' }), wk = 0, body = h('div');
+  var box = h('div', { class: 'sec' }), wk = 0, sel = null, body = h('div');
   function draw() {
-    var rg = volRange(), lo = rg[0], hi = rg[1], from = addDays(weekStart(Date.now()), -7 * wk), to = addDays(from, 7), c = volCalc(from, to), plan = activeProgMuscles(), rows = [], mx = 0;
-    keys(c.m).forEach(function (m) { rows.push({ m: m, n: c.m[m].n, last: c.m[m].last }); mx = Math.max(mx, c.m[m].n); });
-    keys(plan).forEach(function (m) { if (!c.m[m]) rows.push({ m: m, n: 0, last: 0 }); });
-    rows.sort(function (a, b) { return b.n - a.n || MUS[a.m].localeCompare(MUS[b.m], 'ar'); });
-    var top = Math.max(hi * 1.25, mx), pct = function (v) { return Math.min(100, v / top * 100).toFixed(1) + '%'; };
+    var rg = volRange(), lo = rg[0], hi = rg[1], from = addDays(weekStart(Date.now()), -7 * wk), to = addDays(from, 7), c = volCalc(from, to);
     var seg = h('div', { class: 'seg', style: 'margin-bottom:10px' }, [[0, 'هذا الأسبوع'], [1, 'الأسبوع الماضي']].map(function (o) { return h('button', { class: wk === o[0] ? 'on' : '', onclick: function () { wk = o[0]; draw(); } }, o[1]); }));
-    var list = rows.length ? h('div', { style: 'display:grid;gap:10px;margin-top:12px' }, rows.map(function (r) {
-      var st = r.n === 0 ? 'zero' : r.n < lo ? 'low' : r.n <= hi ? 'ok' : 'high', tx = wk === 0 ? { zero: 'ما بدأت بعد', low: 'باقي ' + (lo - r.n) + ' للحد الأدنى', ok: 'ضمن المدى ✓', high: 'فوق المدى' }[st] : { zero: 'ما تدرّبت', low: 'تحت المدى', ok: 'ضمن المدى ✓', high: 'فوق المدى' }[st];
-      return h('div', {}, h('div', { class: 'row sb' }, h('span', { class: 'b' }, MUS[r.m]), h('span', { class: 'sm' }, h('span', { class: 'b ltr' }, r.n + ' مجموعة'), ' · ', tx)),
-        h('div', { class: 'vb', 'aria-hidden': 'true' }, h('i', { class: 'band', style: 'inset-inline-start:' + pct(lo) + ';width:' + (Math.min(100, hi / top * 100) - Math.min(100, lo / top * 100)).toFixed(1) + '%' }), h('i', { class: 'fill ' + st, style: 'width:' + pct(r.n) })));
-    })) : null;
+    var svg = bodyMapSvg(c.m, hi, function (m) { sel = m; draw(); });
+    if (sel) Array.prototype.forEach.call(svg.querySelectorAll('[data-m="' + sel + '"]'), function (el) { el.classList.add('sel'); });
+    var o = sel ? c.m[sel] : null, n = o ? o.n : 0;
+    var read = sel
+      ? h('div', { class: 'mread on' }, h('div', { class: 'b' }, MUS[sel]), h('div', {}, h('span', { class: 'b ltr', style: 'font-size:1.6rem' }, String(n)), ' ' + (n === 1 ? 'مجموعة' : n === 2 ? 'مجموعتين' : n >= 3 && n <= 10 ? 'مجموعات' : 'مجموعة'), ' ' + (wk ? 'الأسبوع الماضي' : 'هذا الأسبوع')), h('div', { class: 'mu xs' }, n ? 'المدى المقترح ' + lo + '–' + hi + (o.last ? ' · آخر مرة ' + fmtDate(o.last) : '') : 'ما لعبت هالعضلة ' + (wk ? 'بذاك الأسبوع' : 'هذا الأسبوع') + ' بعد'))
+      : h('div', { class: 'mread' }, 'اضغط على أي عضلة بالنموذج وتطلع لك كم مجموعة لعبتها');
+    var legend = h('div', { class: 'mleg', 'aria-hidden': 'true' }, h('span', {}, 'أقل مجموعات'), h('i', {}), h('span', {}, 'أكثر مجموعات'));
     var inLo = h('input', { type: 'text', inputmode: 'numeric', dir: 'ltr', value: String(lo), 'aria-label': 'أقل عدد مجموعات' }), inHi = h('input', { type: 'text', inputmode: 'numeric', dir: 'ltr', value: String(hi), 'aria-label': 'أكثر عدد مجموعات' });
     var settings = h('details', { style: 'margin-top:12px' }, h('summary', { class: 'b', style: 'cursor:pointer;color:var(--bl)' }, 'شنو يعني المدى (' + lo + '–' + hi + ')؟'), h('div', { style: 'margin-top:8px;display:grid;gap:8px' },
       h('p', { class: 'mu sm' }, 'الدراسات تقول غالباً إن ١٠ مجموعات أو أكثر بالأسبوع لكل عضلة تعطي نمو أفضل من أقل منها، والفايدة تقل بعد حوالي ٢٠. حطّينا ١٢–٢٠ كمدى افتراضي وتقدر تغيّره. هذي تقديرات من دراسات صغيرة غالباً على شباب متدربين، فهي مو قانون: المبتدئ يكفيه أقل، وجسمك وراحتك وأكلك تحكم.'),
-      h('p', { class: 'mu sm' }, 'نحسب مجموعات العمل المكتملة (بدون الإحماء) على العضلة الأساسية للتمرين فقط. مثلاً البنش يُحسب للصدر مو للتراي. الأسبوع يبدأ من السبت.'),
+      h('p', { class: 'mu sm' }, 'نحسب مجموعات العمل المكتملة (بدون الإحماء) على العضلة الأساسية للتمرين فقط. مثلاً البنش يُحسب للصدر مو للتراي. الأسبوع يبدأ من السبت. كل ما صارت العضلة أغمق بالنموذج، يعني لعبت مجموعات أكثر.'),
       h('div', { class: 'row' }, h('div', { class: 'g' }, field('من', inLo)), h('div', { class: 'g' }, field('إلى', inHi)), h('button', { class: 'btn s', style: 'align-self:flex-end', onclick: function () { var a = parseInt(norm(inLo.value), 10), b = parseInt(norm(inHi.value), 10); if (!(a >= 1 && b >= a && b <= 60)) return toast('اكتب رقمين: الأقل ثم الأكثر (١–٦٠)', 'er'); S.set.volLo = a; S.set.volHi = b; saveSet().then(draw); } }, 'حفظ'))));
-    var tapHint = h('div', { class: 'mu xs c', style: 'margin-top:4px' }, 'اضغط على أي عضلة بالرسم تشوف تفاصيلها');
-    var parts = [seg, bodyMapSvg(c.m, hi, function (m) { var o = c.m[m]; toast(MUS[m] + ': ' + (o ? o.n : 0) + ' مجموعة (المدى ' + lo + '–' + hi + ')' + (o && o.last ? ' · آخر مرة ' + fmtDate(o.last) : ''), 'ok'); }), tapHint,
-      rows.length ? list : h('div', { class: 'mu sm', style: 'margin-top:10px' }, 'ما سجّلت مجموعات ' + (wk ? 'الأسبوع الماضي' : 'هذا الأسبوع') + ' بعد.'),
-      c.other ? h('div', { class: 'mu xs', style: 'margin-top:10px' }, c.other + ' مجموعة لتمارين غير مصنّفة (كامل الجسم / أخرى) ما دخلت بالحساب.') : null, settings].filter(Boolean);
+    var parts = [seg, svg, legend, read, c.other ? h('div', { class: 'mu xs', style: 'margin-top:10px' }, c.other + ' مجموعة لتمارين غير مصنّفة (كامل الجسم / أخرى) ما دخلت بالحساب.') : null, settings].filter(Boolean);
     body.replaceChildren.apply(body, parts);
   }
-  box.appendChild(h('h2', {}, 'مجموعات العضلات بالأسبوع'));
+  box.appendChild(h('h2', {}, 'عضلاتك هذا الأسبوع'));
   box.appendChild(h('div', { class: 'grp pad' }, body));
   draw(); return box;
 }
 function progLinks() {
   var sm = bodySummary(), n = done().length;
-  return h('div', { class: 'grp' }, toolLink('⚖️ جسمك: وزن وقياسات وصور', sm ? fmtN(kgTo(sm.cur.avg), 1) + ' ' + UL() + ' (متوسط ٧ أيام)' : 'سجّل وزنك وتابع التغيير', function () { go('body'); }), toolLink('📅 تقرير الشهر', n ? 'ملخص تمارينك مع بطاقة تشاركها' : 'يظهر بعد أول تمرين', function () { go('report'); }));
+  return h('div', { class: 'grp' }, toolLink('⚖️ جسمك: وزن وقياسات وصور', sm ? fmtN(kgTo(sm.cur.avg), 1) + ' ' + UL() + ' (آخر تسجيل)' : 'سجّل وزنك وتابع التغيير', function () { go('body'); }), toolLink('📅 تقرير الشهر', n ? 'ملخص تمارينك مع بطاقة تشاركها' : 'يظهر بعد أول تمرين', function () { go('report'); }));
 }
 /* ===== تقرير الشهر: كل رقم فيه محسوب من تمارينك المسجّلة فقط ===== */
 var MONTH_RE = /^\d{4}-\d{2}$/;
@@ -1618,13 +1696,12 @@ function reportCalc(y, m) {
   o.list = keys(o.ex).map(function (k) { return o.ex[k]; }).filter(function (g) { return g.n > 0; }).sort(function (a, b) { return b.n - a.n || a.name.localeCompare(b.name, 'ar'); });
   return o;
 }
-/* تغيّر وزن الجسم خلال الشهر: متوسط أول ٧ أيام مقابل متوسط آخر ٧ أيام (أو لحد اليوم) */
+/* تغيّر وزن الجسم خلال الشهر: أول تسجيل وآخر تسجيل بالشهر (يحتاج تسجيلين بينهم ٧ أيام على الأقل) */
 function monthBodyChange(y, m) {
-  var ws = bodyWeights(); if (ws.length < 2) return null;
-  var d0 = dayNum(ymd(new Date(y, m, 1))), d1 = Math.min(dayNum(ymd(new Date(y, m + 1, 0))), dayNum(ymd(Date.now())));
-  if (d1 - d0 < 13) return null;
-  var a = wAvg(ws, d0 + 6, 7), b = wAvg(ws, d1, 7); if (!a || !b) return null;
-  return { a: a.avg, b: b.avg };
+  var p0 = ymd(new Date(y, m, 1)), p1 = ymd(new Date(y, m + 1, 0)), ws = bodyWeights().filter(function (x) { return x.date >= p0 && x.date <= p1; });
+  if (ws.length < 2) return null;
+  var f = ws[0], l = ws[ws.length - 1]; if (dayNum(l.date) - dayNum(f.date) < 7) return null;
+  return { a: f.w, b: l.w };
 }
 function cmpRow(label, cur, prev, f) {
   var d = cur - prev; f = f || String;
@@ -1720,7 +1797,7 @@ PAGES.report = function (args) {
     }))));
     var mv = volCalc(o.from, o.to), mrows = keys(mv.m).map(function (q) { return { m: q, n: mv.m[q].n }; }).sort(function (a, b) { return b.n - a.n; }).slice(0, 6), mx = mrows.length ? mrows[0].n : 1;
     if (mrows.length) out.push(h('div', { class: 'sec' }, h('h2', {}, 'توزيع المجموعات على العضلات'), h('div', { class: 'grp pad' }, mrows.map(function (r) { return h('div', {}, h('div', { class: 'row sb sm' }, h('span', { class: 'b' }, MUS[r.m]), h('span', { class: 'ltr' }, String(r.n))), h('div', { class: 'bar' }, h('i', { style: 'width:' + Math.round(r.n / mx * 100) + '%' }))); }), mv.other ? h('div', { class: 'mu xs' }, mv.other + ' مجموعة لتمارين غير مصنّفة ما دخلت هنا.') : null)));
-    if (bc) out.push(h('div', { class: 'grp pad' }, h('div', { class: 'mu xs' }, 'وزن جسمك بهالشهر (متوسط ٧ أيام)'), h('div', { class: 'b ltr', style: 'font-size:1.2rem' }, fmtN(kgTo(bc.a), 1) + ' → ' + fmtN(kgTo(bc.b), 1) + ' ' + UL()), h('div', { class: 'mu xs' }, 'من أول الشهر لآخره (أو لحد اليوم).')));
+    if (bc) out.push(h('div', { class: 'grp pad' }, h('div', { class: 'mu xs' }, 'وزن جسمك بهالشهر'), h('div', { class: 'b ltr', style: 'font-size:1.2rem' }, fmtN(kgTo(bc.a), 1) + ' → ' + fmtN(kgTo(bc.b), 1) + ' ' + UL()), h('div', { class: 'mu xs' }, 'من أول تسجيل بالشهر لآخر تسجيل.')));
     out.push(h('p', { class: 'mu xs' }, 'كل رقم هنا محسوب من تمارينك المسجّلة، ماكو أرقام وهمية.'));
     holder.replaceChildren.apply(holder, out);
   }
@@ -2069,7 +2146,7 @@ function localIsEmpty() { return !S.ex.length && !S.prog.length && !S.ses.length
 
 PAGES.more = function () {
   var link = function (to, t, sub) { return h('div', { class: 'it', onclick: function () { go(to); } }, h('div', { class: 'g' }, h('div', { class: 'b' }, t), h('div', { class: 'mu sm' }, sub)), ic('fwd', 'ch')); };
-  return h('div', { class: 'page' }, title('المزيد'), installCard(), h('div', { class: 'grp' }, link('library', 'مكتبة التمارين', S.ex.filter(function (e) { return !e.archived; }).length + ' تمرين'), toolLink('🧮 حاسبة الأقراص', 'شنو تحط على كل جهة من البار', function () { plateCalc(null); }), toolLink('⚖️ جسمك', 'وزن وقياسات وصور تقدّم', function () { go('body'); }), toolLink('📅 تقرير الشهر', 'ملخص شهرك مع بطاقة تشاركها', function () { go('report'); }), toolLink('🎯 تحديات الشهر', challengeSub(), function () { go('challenges'); }), link('stickers', 'ملصقاتي ورتبتك', stickerCount() + ' ملصق مفتوح'), link('history', 'سجل التمارين', done().length + ' تمرين منتهٍ'), link('settings', 'الإعدادات', 'الوحدات، المؤقت، النسخ الاحتياطي')));
+  return h('div', { class: 'page' }, title('المزيد'), installCard(), h('div', { class: 'grp' }, link('library', 'مكتبة التمارين', S.ex.filter(function (e) { return !e.archived; }).length + ' تمرين'), link('stickers', 'ملصقاتي ورتبتك', stickerCount() + ' ملصق مفتوح'), link('settings', 'الإعدادات', 'الوحدات، المؤقت، النسخ الاحتياطي')));
 };
 
 PAGES.library = function () {
@@ -2376,8 +2453,7 @@ PAGES.workout = function () {
   var root = h('div', { class: 'page' }); root.appendChild(title('يلا نتمرن 💪'));
   var pr = S.prog.filter(function (p) { return !p.archived && p.days.length; });
   if (pr.length) root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'اختار يوم من برنامجك'), pr.map(function (p) { return h('div', { style: 'margin-bottom:14px' }, h('div', { class: 'mu sm b', style: 'margin-bottom:6px' }, p.name + (p.active ? ' (مفعّل)' : '')), h('div', { class: 'grp' }, p.days.filter(function (d) { return !d.rest; }).map(function (d) { return h('div', { class: 'it', onclick: function () { startFromDay(p.id, d.id); } }, h('div', { class: 'g' }, h('div', { class: 'b' }, d.name), h('div', { class: 'mu sm' }, d.exercises.length + ' تمارين')), h('span', { class: 'tag bl' }, 'ابدأ')); }))); })));
-  var nm = h('input', { placeholder: 'اسم التمرين (اختياري)' });
-  root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'تمرين فارغ'), h('div', { class: 'grp pad' }, h('p', { class: 'mu sm', style: 'margin-bottom:10px' }, 'اختر التمارين وأنت تتمرّن.'), nm, h('button', { class: 'btn pri f', style: 'margin-top:10px', onclick: function () { startEmpty(nm.value.trim()); } }, 'ابدأ تمريناً فارغاً'))));
+  if (!pr.length) root.appendChild(h('div', { class: 'grp' }, emptyBox('ماكو برنامج تبدي منه', 'سوّي برنامج (أو خذ قالب جاهز) وبعدها اختار يومك من هنا.', h('button', { class: 'btn pri', onclick: function () { go('training'); } }, 'برامجي'), 'sleep')));
   return root;
 };
 PAGES.session = function (args) { var s = S.ses.filter(function (x) { return x.id === args[0]; })[0]; if (!s) return h('div', { class: 'page' }, h('div', { class: 'grp' }, emptyBox('التمرين غير موجود', ''))); return sessionEditor(s, s.status === 'active'); };
@@ -2399,10 +2475,10 @@ function sessionEditor(s, live) {
   var root = h('div', { class: 'page' });
   function edit() { return persist('sessions', s); }
   function redraw() { rerender(); }
-  root.appendChild(h('div', { class: 'top' }, h('div', { class: 'row g' }, live ? null : backBtn('history'), h('div', { class: 'g' }, h('h1', {}, s.name), h('div', { class: 'mu sm' }, live ? ['جارٍ · ', h('span', { id: 'elapsed', class: 'ltr' }, fmtDur((Date.now() - s.startedAt) / 1000)), ' · يُحفظ تلقائياً', h('span', { id: 'wakeTag', style: WAKE.lock ? '' : 'display:none' }, ' · 🔆 الشاشة ما تنطفي')] : (s.status === 'completed' ? 'منتهٍ · ' + fmtDate(s.completedAt) : 'لم يكتمل · ' + fmtDate(s.startedAt))))),
+  root.appendChild(h('div', { class: 'top' }, h('div', { class: 'row g' }, live ? null : backBtn('history'), h('div', { class: 'g' }, h('h1', {}, s.name), h('div', { class: 'mu sm' }, live ? ['جارٍ · ', h('span', { id: 'elapsed', class: 'ltr' }, fmtClock((Date.now() - s.startedAt) / 1000)), ' · يُحفظ تلقائياً', h('span', { id: 'wakeTag', style: WAKE.lock ? '' : 'display:none' }, ' · 🔆 الشاشة ما تنطفي')] : (s.status === 'completed' ? 'منتهٍ · ' + fmtDate(s.completedAt) : 'لم يكتمل · ' + fmtDate(s.startedAt))))),
     live ? h('div', { class: 'row' }, h('button', { class: 'ib', onclick: function () { renameSes(s); }, 'aria-label': 'تغيير الاسم' }, '✎'), h('button', { class: 'btn gn s', onclick: function () { finishDialog(s); } }, 'إنهاء')) : null));
-  if (live) { var tick = function () { var el = $('#elapsed'); if (el) el.textContent = fmtDur((Date.now() - s.startedAt) / 1000); }; tick(); clearInterval(window._el); window._el = setInterval(tick, 1000); }
-  if (!s.exercises.length) root.appendChild(h('div', { class: 'grp' }, emptyBox('التمرين فارغ مثل جيبي آخر الشهر 😅', 'أضف أول تمرين من الزر بالأسفل.')));
+  if (live) { var tick = function () { var el = $('#elapsed'); if (el) el.textContent = fmtClock((Date.now() - s.startedAt) / 1000); }; tick(); clearInterval(window._el); window._el = setInterval(tick, 1000); }
+  if (!s.exercises.length) root.appendChild(h('div', { class: 'grp' }, emptyBox('ما ضفت تمارين للجلسة بعد', 'أضف أول تمرين من الزر بالأسفل.')));
   s.exercises.forEach(function (e, ei) {
     var T = e.tracking, ex = exById(e.exId), prev = e.exId ? prevFor(e.exId, s.id) : null, blk = h('div', { class: 'xc' + (e.ss ? ' ss' : '') + (NEXTUP === e.id ? ' next' : '') }), cl = cols(T), dur = T === 'duration';
     var pw = prev ? prev.sets.filter(function (x) { return x.type !== 'warmup'; }) : [];
@@ -2467,7 +2543,7 @@ function setRow(o) {
     if (wIn) { var wn = num(wIn.value); if (wn != null && wn >= 0) st.w = +toKg(wn).toFixed(4); }
     var rn = num(rIn.value); if (rn != null && rn >= 0) { if (dur) st.dur = Math.round(rn); else st.reps = Math.round(rn); }
     if (!valid2(T, st)) return toast(dur ? 'اكتب عدد الثواني أولاً' : T === 'weight_reps' ? 'اكتب الوزن (يجوز صفر) والتكرارات' : 'اكتب عدد التكرارات أولاً', 'er');
-    st.status = 'completed'; st.at = Date.now(); buzz(15);
+    st.status = 'completed'; st.at = Date.now(); buzz(15); if (st.type !== 'warmup') e.effort = null; /* التقييم يبدأ من جديد مع كل مجموعة */
     var pr = false;
     if (T === 'weight_reps' && isWork(st) && st.w > 0) { var pb = priorBest(e.exId, s.id); if (pb > 0 && st.w > pb + 1e-6) { st.pr = true; pr = true; } else delete st.pr; }
     var nx = s.status === 'active' && st.type !== 'warmup' ? ssNext(s, e) : null;
@@ -2486,25 +2562,6 @@ function setRow(o) {
   row.appendChild(h('button', { class: 'ib', style: 'width:30px;height:44px', 'aria-label': 'خيارات المجموعة', onclick: function () {
     var close = sheet('المجموعة ' + (si + 1), h('div', { style: 'display:grid;gap:8px' }, h('button', { class: 'btn', onclick: function () { close(); st.status = st.status === 'skipped' ? 'pending' : 'skipped'; delete st.pr; edit().then(redraw); } }, st.status === 'skipped' ? 'إلغاء التخطّي' : 'تخطّي هذه المجموعة'), h('button', { class: 'btn dg', onclick: function () { close(); e.sets.splice(si, 1); edit().then(redraw); } }, 'حذف المجموعة')));
   } }, ic('dots')));
-  if (o.cur) {
-    /* أزرار ± للمجموعة الحالية فقط (أول مجموعة ما انتهت) */
-    var wm, wp, rm, rp;
-    function wStepNow() { var c = wIn ? num(wIn.value) : null, base = c != null ? c : (st.w != null ? kgTo(st.w) : (tg && tg.w != null ? kgTo(tg.w) : 0)); return { base: base, step: stepDisp(ex) }; }
-    function labW() { var q = wStepNow(); wm.textContent = '−' + fmtN(q.step, 2); wp.textContent = '+' + fmtN(q.step, 2); }
-    function bumpW(d) { var q = wStepNow(), nv = Math.max(0, +(q.base + d * q.step).toFixed(3)); st.w = +toKg(nv).toFixed(4); wIn.value = fmtN(nv, 2); buzz(8); edit(); labW(); }
-    function bumpR(d) {
-      var c = num(rIn.value), base = c != null ? c : (dur ? (st.dur != null ? st.dur : (tg && tg.reps != null ? tg.reps : 30)) : (st.reps != null ? st.reps : (tg && tg.reps != null ? tg.reps : 8)));
-      var nv = Math.max(0, Math.round(base + d * (dur ? 5 : 1))); if (dur) st.dur = nv; else st.reps = nv; rIn.value = nv; buzz(8); edit();
-    }
-    var sg1 = null;
-    if (wIn) {
-      wm = h('button', { type: 'button', 'aria-label': 'أنقص الوزن', onclick: function () { bumpW(-1); } }, ''); wp = h('button', { type: 'button', 'aria-label': 'زِد الوزن', onclick: function () { bumpW(1); } }, '');
-      sg1 = h('div', { class: 'sg' }, wm, wp, h('span', { class: 'lb' }, UL())); labW();
-    }
-    rm = h('button', { type: 'button', 'aria-label': dur ? 'أنقص الثواني' : 'أنقص التكرارات', onclick: function () { bumpR(-1); } }, dur ? '−5' : '−1');
-    rp = h('button', { type: 'button', 'aria-label': dur ? 'زِد الثواني' : 'زِد التكرارات', onclick: function () { bumpR(1); } }, dur ? '+5' : '+1');
-    row.appendChild(h('div', { class: 'stp' }, sg1, h('div', { class: 'sg' }, rm, rp, h('span', { class: 'lb' }, dur ? 'ثانية' : 'تكرار'))));
-  }
   if (st.pr && st.status === 'completed') row.appendChild(h('div', { class: 'pr' }, '🔥 رقم قياسي جديد! أعلى وزن سجّلته لهذا التمرين'));
   return row;
 }
@@ -2529,11 +2586,11 @@ function drawRest() {
   document.body.classList.add('resting');
   var el = $('#rest'); if (!el) { el = h('div', { class: 'rest', id: 'rest' }); document.body.appendChild(el); }
   var left = rest.paused ? rest.paused : Math.max(0, rest.end - Date.now());
-  el.replaceChildren(h('div', { class: 'in' }, h('span', { class: 'b' }, 'ارتاح ☕'), h('b', {}, fmtDur(Math.ceil(left / 1000))),
+  el.replaceChildren(h('div', { class: 'in' }, h('span', { class: 'b' }, 'ارتاح ☕'), h('b', { dir: 'ltr' }, fmtClock(Math.ceil(left / 1000))),
     h('button', { class: 'btn s', onclick: function () { if (rest.paused) { rest.end = Date.now() + rest.paused; rest.paused = 0; rest.timer = setInterval(tickRest, 250); } else { rest.paused = Math.max(0, rest.end - Date.now()); clearInterval(rest.timer); rest.timer = null; } drawRest(); } }, rest.paused ? 'استئناف' : 'إيقاف مؤقت'),
     h('button', { class: 'btn s', onclick: function () { startRest(S.set.rest); } }, 'إعادة'), h('button', { class: 'btn s', onclick: stopRest, 'aria-label': 'إغلاق' }, '✕')));
 }
-function tickRest() { if (rest.end - Date.now() <= 0) { stopRest(); buzz([250, 120, 250]); toast('خلصت الراحة — يلا للمجموعة الجاية 💪', 'ok'); return; } drawRest(); }
+function tickRest() { if (rest.end - Date.now() <= 0) { stopRest(); buzz([250, 120, 250]); playRestSound(); toast('خلصت الراحة — يلا للمجموعة الجاية 💪', 'ok'); return; } drawRest(); }
 
 PAGES.progress = function () {
   var root = h('div', { class: 'page' }), tab = 'overview', body = h('div'), exId = null;
@@ -2546,23 +2603,18 @@ PAGES.progress = function () {
 function progOverview() {
   var dd = done(), box = h('div', { class: 'page' });
   if (!dd.length) return h('div', { class: 'page' }, progLinks(), h('div', { class: 'grp' }, emptyBox('لسه ماكو شي نرسمه 📈', 'خلّص تمرين واحد وتبدأ الرسوم تطلع. ما نعرض أرقام وهمية.')));
-  var cur = weekStart(Date.now()), weeks = [], months = [], heat = {}, i;
+  var cur = weekStart(Date.now()), weeks = [], months = [], i;
   for (i = 11; i >= 0; i--) weeks.push({ k: cur - i * 7 * 864e5, n: 0, v: 0 });
   var nd = new Date(); for (i = 11; i >= 0; i--) { var m = new Date(nd.getFullYear(), nd.getMonth() - i, 1); months.push({ k: m.getFullYear() * 12 + m.getMonth(), l: m.toLocaleDateString(LOC, { month: 'short' }), n: 0 }); }
   dd.forEach(function (s) {
     var w = weeks.filter(function (x) { return x.k === weekStart(s.completedAt); })[0]; if (w) { w.n++; w.v += sesStats(s).vol; }
     var c = new Date(s.completedAt), mm = months.filter(function (x) { return x.k === c.getFullYear() * 12 + c.getMonth(); })[0]; if (mm) mm.n++;
-    heat[ymd(s.completedAt)] = (heat[ymd(s.completedAt)] || 0) + 1;
   });
   var lbl = function (k) { var d = new Date(k); return d.getDate() + '/' + (d.getMonth() + 1); };
-  var cells = [], st0 = cur - 25 * 7 * 864e5;
-  for (i = 0; i < 26 * 7; i++) { var day = new Date(st0 + i * 864e5); if (day.getTime() > Date.now()) break; var n = heat[ymd(day)] || 0; cells.push(h('i', { class: n >= 2 ? 'l2' : n ? 'l1' : '', title: ymd(day) + ': ' + n })); }
   var hasVol = weeks.some(function (w) { return w.v; });
   box.appendChild(progLinks()); box.appendChild(volSection());
-  box.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'التمارين في الأسبوع (آخر 12 أسبوعاً)'), h('div', { class: 'grp pad' }, barChart(weeks.map(function (w) { return { l: lbl(w.k), v: w.n }; })))));
   box.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'التمارين في الشهر'), h('div', { class: 'grp pad' }, barChart(months.map(function (m) { return { l: m.l, v: m.n }; })))));
   box.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'الحجم الأسبوعي (' + UL() + ')'), h('div', { class: 'grp pad' }, h('div', { class: 'mu xs', style: 'margin-bottom:8px' }, 'مجموعات العمل المكتملة لتمارين الوزن + التكرارات فقط. الإحماء ووزن الجسم والتكرارات فقط والمدة لا تدخل في الحجم.'), hasVol ? barChart(weeks.map(function (w) { return { l: lbl(w.k), v: Math.round(kgTo(w.v)) }; }), function (v) { return v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v; }) : emptyBox('لا توجد بيانات وزن × تكرار بعد', ''))));
-  box.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'تقويم التدريب (26 أسبوعاً)'), h('div', { class: 'grp pad' }, h('div', { class: 'heat' }, cells))));
   return box;
 }
 function progExercise(cur, set) {
@@ -2621,6 +2673,7 @@ PAGES.settings = function () {
   var themeSeg = h('div', { class: 'seg' }, [['dark', 'داكن'], ['light', 'فاتح']].map(function (u) { return h('button', { class: (S.set.theme === 'light' ? 'light' : 'dark') === u[0] ? 'on' : '', onclick: function () { S.set.theme = u[0]; sv().then(rerender); } }, u[1]); }));
   root.appendChild(h('div', { class: 'top' }, h('div', { class: 'row' }, backBtn('more'), h('h1', {}, 'الإعدادات'))));
   root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'التمرين'), h('div', { class: 'grp pad' }, field('اسمك أو لقبك (للتحية)', nameIn), goalField(), field('وحدة الوزن (يُخزَّن بالكيلوغرام ويُحوَّل للعرض)', unitSeg), field('الراحة الافتراضية (ثانية)', rest), field('المظهر', themeSeg)), h('div', { class: 'grp', style: 'margin-top:10px' }, chk('تشغيل مؤقت الراحة تلقائياً بعد كل مجموعة', 'autoRest'), chk('اهتزاز عند انتهاء الراحة وإكمال المجموعة', 'vibrate'), chk(wakeSupported() ? 'إبقاء الشاشة شغّالة أثناء التمرين (ما تنطفي)' : 'إبقاء الشاشة شغّالة (متصفحك ما يدعمها)', 'wake'))));
+  root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'صوت الراحة'), soundSection(sv)));
   root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'المدرّب (اقتراحات التدرّج)'), h('p', { class: 'mu sm', style: 'margin-bottom:8px' }, 'قواعد محلية على مجموعاتك المسجلة. اختياري، لا يغيّر برنامجك أبداً، ولا يعرف حالتك. توقف إذا شعرت بألم.'), progHelp(), h('div', { class: 'grp' }, chk('إظهار اقتراحات المدرّب', 'coach'), h('div', { class: 'pad', style: 'border-top:1px solid var(--ln)' }, field('خطوة زيادة الوزن الافتراضية (' + UL() + ')', inc)))));
   var imp = h('input', { type: 'file', accept: '.json,application/json,text/plain', style: 'display:none', onchange: function (ev) { importFile(ev.target.files[0]); ev.target.value = ''; } });
   root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'بياناتك على هذا الجهاز'), h('div', { class: 'warn', style: 'margin-bottom:10px' }, 'بياناتك محفوظة داخل هذا المتصفح فقط. مسح بيانات Chrome أو نقل الملف قد يحذفها. صدّر نسخة احتياطية باستمرار واحفظها بمكان آخر (Telegram، Drive، كمبيوتر).'),
@@ -2634,7 +2687,7 @@ PAGES.settings = function () {
     h('div', { class: 'b', id: 'lastbk' }, bkTxt()))));
   root.appendChild(storageSec());
   root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'عن التطبيق'), h('div', { style: 'padding:14px 0 8px' }, brand()),
-    h('p', { class: 'mu sm' }, 'الإصدار 3.3.0 — يعمل بدون إنترنت. لا حساب ولا خادم ولا تحليلات، ولا يُرسل أي شيء لأي مكان. الحجم = مجموع (الوزن × التكرارات) لمجموعات العمل المكتملة في تمارين الوزن + التكرارات فقط.'),
+    h('p', { class: 'mu sm' }, 'الإصدار 3.4.0 — يعمل بدون إنترنت. لا حساب ولا خادم ولا تحليلات، ولا يُرسل أي شيء لأي مكان. الحجم = مجموع (الوزن × التكرارات) لمجموعات العمل المكتملة في تمارين الوزن + التكرارات فقط.'),
     h('p', { class: 'mu sm', style: 'margin-top:6px' }, swOn ? 'وضع التثبيت: يعمل بدون إنترنت (Service Worker مفعّل).' : 'وضع التشغيل: ملف محلي أو بدون Service Worker.')));
   return root;
 };
@@ -2646,7 +2699,7 @@ function exportData(opts) {
 function backupBuild(withPhotos, keepStamp) {
   var now = Date.now(); if (!keepStamp) bkStamp();
   var imgs = keys(S.img).map(function (id) { return { id: id, data: S.img[id] }; });
-  var data = { format: 'titanlog-local-backup', version: 1, app: '3.3.0', exportedAt: new Date().toISOString(), note: 'Weights are in kg.', settings: keepStamp ? Object.assign({}, S.set, { lastBackup: now }) : S.set, exercises: S.ex, programs: S.prog, sessions: S.ses, images: imgs, body: S.body };
+  var data = { format: 'titanlog-local-backup', version: 1, app: '3.4.0', exportedAt: new Date().toISOString(), note: 'Weights are in kg.', settings: keepStamp ? Object.assign({}, S.set, { lastBackup: now }) : S.set, exercises: S.ex, programs: S.prog, sessions: S.ses, images: imgs, body: S.body };
   if (!withPhotos) return Promise.resolve(JSON.stringify(data));
   return photosLoad().then(function () { data.photos = S.photos; return JSON.stringify(data); });
 }
@@ -2714,6 +2767,7 @@ function registerPWA() {
   if (!/^https?:$/.test(location.protocol)) return;
   try { var l = document.createElement('link'); l.rel = 'manifest'; l.href = 'manifest.webmanifest'; document.head.appendChild(l); var ai = document.createElement('link'); ai.rel = 'apple-touch-icon'; ai.href = 'icons/apple-touch-icon.png'; document.head.appendChild(ai); } catch (e) {}
   try { if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {}); } catch (e) {}
+  try { soundWarm(); } catch (e) {}
 }
 Store.open().then(load).then(function () {
   route(); registerPWA();

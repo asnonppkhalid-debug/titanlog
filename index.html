@@ -364,6 +364,13 @@ button.tag{background:transparent;font-family:inherit;font-size:.74rem;cursor:po
 #rest b{color:#fff;font-variant-numeric:tabular-nums}
 #rest .b{color:rgba(255,255,255,.9)}
 input[type=radio]{width:22px;height:22px;min-height:0;accent-color:var(--bl);flex:none}
+.lock{position:fixed;inset:0;z-index:300;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;touch-action:none;user-select:none;-webkit-user-select:none}
+.lock .lk-i{font-size:3rem}.lock .lk-h{font-size:1.5rem;font-weight:800}
+.lock .lk-t{font-size:3.2rem;font-weight:800;margin-top:8px}
+.lock .lk-r{font-size:1.2rem;background:var(--tx);color:var(--bg);border-radius:999px;padding:6px 16px}
+.lock .lk-hold{position:relative;overflow:hidden;margin-top:28px;min-height:56px;width:100%;max-width:320px;border-radius:16px;border:2px solid var(--ln);background:var(--s2,#fff);font:inherit;font-weight:700;color:var(--tx)}
+.lock .lk-hold i{position:absolute;top:0;bottom:0;right:0;width:0;background:var(--gold,#F4B731);opacity:.45}
+.lock .lk-hold span{position:relative}
 
 </style>
 </head>
@@ -457,7 +464,7 @@ var Store = {
   }
 };
 var S = { ex: [], prog: [], ses: [], set: null, img: {}, body: [], photos: [], photosLoaded: false };
-var DEF = { id: 'settings', unit: 'kg', rest: 90, autoRest: true, coach: true, inc: 2.5, theme: 'light', vibrate: true, name: '', wake: true, sound: 'default', soundOn: true };
+var DEF = { id: 'settings', unit: 'kg', rest: 90, autoRest: true, coach: true, inc: 2.5, theme: 'light', vibrate: true, name: '', wake: true, sound: 'default', soundOn: true, autoLock: true };
 function load() {
   return Promise.all([Store.all('exercises'), Store.all('programs'), Store.all('sessions'), Store.all('kv'), Store.all('images'), Store.all('body')]).then(function (r) {
     S.ex = r[0]; S.prog = r[1]; S.ses = r[2]; S.img = {}; S.photos = []; S.photosLoaded = false;
@@ -880,6 +887,44 @@ function topTrends() {
   return c.sort(function (a, b) { return b.pts.length - a.pts.length; }).slice(0, 1);
 }
 
+/* --- قفل الشاشة أثناء التمرين --- */
+var LOCK = { on: false, ov: null, iv: null, hold: null };
+function lockBlock(e) { e.preventDefault(); }
+function lockBeforeUnload(e) { e.preventDefault(); e.returnValue = ''; return ''; }
+function lockPop() { if (LOCK.on) try { history.pushState({ tlLock: 1 }, '', location.href); } catch (e) {} }
+function lockClock() {
+  var a = activeSes(), el = LOCK.ov && LOCK.ov.querySelector('.lk-t'), rl = LOCK.ov && LOCK.ov.querySelector('.lk-r');
+  if (el && a) el.textContent = fmtClock((Date.now() - a.startedAt) / 1000);
+  if (rl) { var left = rest.end - Date.now(); if (left > 0) { rl.style.display = ''; rl.querySelector('b').textContent = fmtClock(Math.ceil(left / 1000)); } else rl.style.display = 'none'; }
+}
+function lockOpen() {
+  if (LOCK.on || !activeSes()) return;
+  LOCK.on = true;
+  try { localStorage.setItem('tl_lock', '1'); } catch (e) {}
+  var fill = h('i'), btn = h('button', { class: 'lk-hold', 'aria-label': 'اضغط مطولاً لفك القفل' }, fill, h('span', {}, 'اضغط مطولاً لفك القفل'));
+  function start(ev) { ev.preventDefault(); if (LOCK.hold) return; fill.style.transition = 'width 1.2s linear'; fill.style.width = '100%'; LOCK.hold = setTimeout(function () { LOCK.hold = null; lockClose(); }, 1200); }
+  function stop() { if (LOCK.hold) { clearTimeout(LOCK.hold); LOCK.hold = null; } fill.style.transition = 'width .2s'; fill.style.width = '0'; }
+  ['pointerdown'].forEach(function (n) { btn.addEventListener(n, start); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (n) { btn.addEventListener(n, stop); });
+  btn.addEventListener('contextmenu', lockBlock);
+  LOCK.ov = h('div', { class: 'lock', role: 'dialog', 'aria-label': 'الشاشة مقفولة' },
+    h('div', { class: 'lk-i' }, '🔒'), h('div', { class: 'lk-h' }, 'الشاشة مقفولة'), h('div', { class: 'mu' }, 'اللمس ما يسوي شي. التمرين يكمل ويحفظ لحاله.'),
+    h('div', { class: 'lk-t ltr' }), h('div', { class: 'lk-r', style: 'display:none' }, 'الراحة: ', h('b', { class: 'ltr' })), btn);
+  ['touchmove', 'contextmenu', 'wheel', 'dblclick'].forEach(function (n) { LOCK.ov.addEventListener(n, lockBlock, { passive: false }); });
+  document.body.appendChild(LOCK.ov);
+  window.addEventListener('beforeunload', lockBeforeUnload); window.addEventListener('popstate', lockPop); lockPop();
+  try { var el = document.documentElement; if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen().catch(function () {}); } catch (e) {}
+  lockClock(); LOCK.iv = setInterval(lockClock, 250);
+}
+function lockClose() {
+  if (!LOCK.on) return;
+  LOCK.on = false; clearInterval(LOCK.iv); if (LOCK.hold) { clearTimeout(LOCK.hold); LOCK.hold = null; }
+  try { localStorage.removeItem('tl_lock'); } catch (e) {}
+  window.removeEventListener('beforeunload', lockBeforeUnload); window.removeEventListener('popstate', lockPop);
+  if (LOCK.ov && LOCK.ov.parentNode) LOCK.ov.parentNode.removeChild(LOCK.ov); LOCK.ov = null;
+  try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(function () {}); } catch (e) {}
+}
+function lockResume() { var f = null; try { f = localStorage.getItem('tl_lock'); } catch (e) {} if (f && activeSes()) lockOpen(); else if (f) { try { localStorage.removeItem('tl_lock'); } catch (e) {} } }
 /* ===== صوت انتهاء الراحة: افتراضي، أو تختاره (نغمات جاهزة / ملف من جهازك) ===== */
 /* ساعة رقمية للمؤقتات: 1:30 أو 1:05:30 (بدون حروف، حتى ما تنقلب بالاتجاه) */
 function fmtClock(sec) { sec = Math.max(0, Math.floor(sec)); var h0 = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60, p = function (n) { return n < 10 ? '0' + n : String(n); }; return h0 ? h0 + ':' + p(m) + ':' + p(s) : m + ':' + p(s); }
@@ -2476,7 +2521,7 @@ function sessionEditor(s, live) {
   function edit() { return persist('sessions', s); }
   function redraw() { rerender(); }
   root.appendChild(h('div', { class: 'top' }, h('div', { class: 'row g' }, live ? null : backBtn('history'), h('div', { class: 'g' }, h('h1', {}, s.name), h('div', { class: 'mu sm' }, live ? ['جارٍ · ', h('span', { id: 'elapsed', class: 'ltr' }, fmtClock((Date.now() - s.startedAt) / 1000)), ' · يُحفظ تلقائياً', h('span', { id: 'wakeTag', style: WAKE.lock ? '' : 'display:none' }, ' · 🔆 الشاشة ما تنطفي')] : (s.status === 'completed' ? 'منتهٍ · ' + fmtDate(s.completedAt) : 'لم يكتمل · ' + fmtDate(s.startedAt))))),
-    live ? h('div', { class: 'row' }, h('button', { class: 'ib', onclick: function () { renameSes(s); }, 'aria-label': 'تغيير الاسم' }, '✎'), h('button', { class: 'btn gn s', onclick: function () { finishDialog(s); } }, 'إنهاء')) : null));
+    live ? h('div', { class: 'row' }, h('button', { class: 'ib', onclick: lockOpen, 'aria-label': 'قفل الشاشة' }, '🔒'), h('button', { class: 'ib', onclick: function () { renameSes(s); }, 'aria-label': 'تغيير الاسم' }, '✎'), h('button', { class: 'btn gn s', onclick: function () { finishDialog(s); } }, 'إنهاء')) : null));
   if (live) { var tick = function () { var el = $('#elapsed'); if (el) el.textContent = fmtClock((Date.now() - s.startedAt) / 1000); }; tick(); clearInterval(window._el); window._el = setInterval(tick, 1000); }
   if (!s.exercises.length) root.appendChild(h('div', { class: 'grp' }, emptyBox('ما ضفت تمارين للجلسة بعد', 'أضف أول تمرين من الزر بالأسفل.')));
   s.exercises.forEach(function (e, ei) {
@@ -2590,7 +2635,7 @@ function drawRest() {
     h('button', { class: 'btn s', onclick: function () { if (rest.paused) { rest.end = Date.now() + rest.paused; rest.paused = 0; rest.timer = setInterval(tickRest, 250); } else { rest.paused = Math.max(0, rest.end - Date.now()); clearInterval(rest.timer); rest.timer = null; } drawRest(); } }, rest.paused ? 'استئناف' : 'إيقاف مؤقت'),
     h('button', { class: 'btn s', onclick: function () { startRest(S.set.rest); } }, 'إعادة'), h('button', { class: 'btn s', onclick: stopRest, 'aria-label': 'إغلاق' }, '✕')));
 }
-function tickRest() { if (rest.end - Date.now() <= 0) { stopRest(); buzz([250, 120, 250]); playRestSound(); toast('خلصت الراحة — يلا للمجموعة الجاية 💪', 'ok'); return; } drawRest(); }
+function tickRest() { if (rest.end - Date.now() <= 0) { stopRest(); buzz([250, 120, 250]); playRestSound(); if (S.set.autoLock !== false) setTimeout(lockOpen, 400); toast('خلصت الراحة — يلا للمجموعة الجاية 💪', 'ok'); return; } drawRest(); }
 
 PAGES.progress = function () {
   var root = h('div', { class: 'page' }), tab = 'overview', body = h('div'), exId = null;
@@ -2672,7 +2717,7 @@ PAGES.settings = function () {
   var unitSeg = h('div', { class: 'seg' }, ['kg', 'lb'].map(function (u) { return h('button', { class: S.set.unit === u ? 'on' : '', onclick: function () { S.set.unit = u; sv().then(rerender); } }, u === 'kg' ? 'كيلوغرام' : 'باوند'); }));
   var themeSeg = h('div', { class: 'seg' }, [['dark', 'داكن'], ['light', 'فاتح']].map(function (u) { return h('button', { class: (S.set.theme === 'light' ? 'light' : 'dark') === u[0] ? 'on' : '', onclick: function () { S.set.theme = u[0]; sv().then(rerender); } }, u[1]); }));
   root.appendChild(h('div', { class: 'top' }, h('div', { class: 'row' }, backBtn('more'), h('h1', {}, 'الإعدادات'))));
-  root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'التمرين'), h('div', { class: 'grp pad' }, field('اسمك أو لقبك (للتحية)', nameIn), goalField(), field('وحدة الوزن (يُخزَّن بالكيلوغرام ويُحوَّل للعرض)', unitSeg), field('الراحة الافتراضية (ثانية)', rest), field('المظهر', themeSeg)), h('div', { class: 'grp', style: 'margin-top:10px' }, chk('تشغيل مؤقت الراحة تلقائياً بعد كل مجموعة', 'autoRest'), chk('اهتزاز عند انتهاء الراحة وإكمال المجموعة', 'vibrate'), chk(wakeSupported() ? 'إبقاء الشاشة شغّالة أثناء التمرين (ما تنطفي)' : 'إبقاء الشاشة شغّالة (متصفحك ما يدعمها)', 'wake'))));
+  root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'التمرين'), h('div', { class: 'grp pad' }, field('اسمك أو لقبك (للتحية)', nameIn), goalField(), field('وحدة الوزن (يُخزَّن بالكيلوغرام ويُحوَّل للعرض)', unitSeg), field('الراحة الافتراضية (ثانية)', rest), field('المظهر', themeSeg)), h('div', { class: 'grp', style: 'margin-top:10px' }, chk('تشغيل مؤقت الراحة تلقائياً بعد كل مجموعة', 'autoRest'), chk('اهتزاز عند انتهاء الراحة وإكمال المجموعة', 'vibrate'), chk('قفل الشاشة تلقائياً بعد ما يخلص وقت الراحة ويشتغل الصوت', 'autoLock'), chk(wakeSupported() ? 'إبقاء الشاشة شغّالة أثناء التمرين (ما تنطفي)' : 'إبقاء الشاشة شغّالة (متصفحك ما يدعمها)', 'wake'))));
   root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'صوت الراحة'), soundSection(sv)));
   root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'المدرّب (اقتراحات التدرّج)'), h('p', { class: 'mu sm', style: 'margin-bottom:8px' }, 'قواعد محلية على مجموعاتك المسجلة. اختياري، لا يغيّر برنامجك أبداً، ولا يعرف حالتك. توقف إذا شعرت بألم.'), progHelp(), h('div', { class: 'grp' }, chk('إظهار اقتراحات المدرّب', 'coach'), h('div', { class: 'pad', style: 'border-top:1px solid var(--ln)' }, field('خطوة زيادة الوزن الافتراضية (' + UL() + ')', inc)))));
   var imp = h('input', { type: 'file', accept: '.json,application/json,text/plain', style: 'display:none', onchange: function (ev) { importFile(ev.target.files[0]); ev.target.value = ''; } });
@@ -2770,7 +2815,7 @@ function registerPWA() {
   try { soundWarm(); } catch (e) {}
 }
 Store.open().then(load).then(function () {
-  route(); registerPWA();
+  route(); registerPWA(); lockResume();
   try { if (navigator.storage && navigator.storage.persist) Promise.resolve(navigator.storage.persist()).catch(function () {}); } catch (e) {}
 }).catch(function (e) { $('#app').innerHTML = '<div style="padding:30px;text-align:center"><b>تعذّر تشغيل التطبيق</b><p style="color:#93a0b5">' + String(e && e.message || e).replace(/</g, '&lt;') + '</p></div>'; });
 </script>

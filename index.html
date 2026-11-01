@@ -1424,6 +1424,19 @@ function plateCalc(w0, onUse) {
   sheet('حاسبة الأقراص 🧮', body, function (c) { return onUse ? [h('button', { class: 'btn', onclick: c }, 'إغلاق'), h('button', { class: 'btn pri', onclick: function () { var t = cur != null ? cur : num(tot.value); if (!(t > 0)) return toast('اكتب الوزن أولاً', 'er'); c(); onUse(+toKg(t).toFixed(4)); } }, 'حطّه بالمجموعة')] : [h('button', { class: 'btn pri', onclick: c }, 'تمام')]; });
 }
 
+/* --- هل هالتمرين يحتاج إحماء؟ (يطلع الزر بس للعضلات الكبيرة، وبأول تمرين لنفس العضلة بالجلسة) --- */
+var WARM_MU = { chest: 1, back: 1, shoulders: 1, quadriceps: 1, hamstrings: 1, glutes: 1, traps: 1 };
+function needsWarmup(s, e) {
+  var ex = exById(e.exId), mu = e.muscle || (ex && ex.muscle);
+  if (e.tracking !== 'weight_reps' || !mu || !WARM_MU[mu]) return false;
+  var eq = ex && ex.equip; if (eq === 'bands') return false;
+  for (var i = 0; i < s.exercises.length; i++) {
+    var x = s.exercises[i]; if (x === e) break;
+    var xm = x.muscle || (exById(x.exId) || {}).muscle;
+    if (xm === mu && x.tracking === 'weight_reps') return false; /* العضلة تسخّنت من تمرين قبله */
+  }
+  return true;
+}
 /* --- الإحماء --- */
 function warmupPlan(Wd, ex) {
   /* Wd بوحدة العرض؛ يرجّع [{w (وحدة العرض), reps}] */
@@ -1530,6 +1543,7 @@ function exMenu(s, e, i, redraw, edit, live) {
   var ex = exById(e.exId), acts = [];
   if (ex) acts.push(['التفاصيل والملاحظات والصورة', function () { exerciseDetail(ex); }, true]);
   if (live) acts.push(['الجهاز مشغول؟ بدّل التمرين', function () { swapSheet(s, e, edit, redraw); }, true]);
+  if (live && e.tracking === 'weight_reps' && !needsWarmup(s, e) && !e.sets.some(function (t) { return t.type === 'warmup'; })) acts.push(['إحماء لهالتمرين (اختياري)', function () { warmupSheet(s, e, edit, redraw); }, true]);
   if (live) {
     if (e.ss) acts.push(['فك السوبر سِت', function () { ssUnlink(s, e); }]);
     if (s.exercises[i + 1] && !(e.ss && s.exercises[i + 1].ss === e.ss)) acts.push(['سوبر سِت مع التمرين التالي', function () { ssLink(s, i, 1); }]);
@@ -2649,7 +2663,7 @@ function sessionEditor(s, live) {
       blk.appendChild(setRow({ s: s, e: e, st: st, si: si, T: T, edit: edit, redraw: redraw, pv: pv, pvSet: p, cl: cl, workIdx: wi, cur: live && si === fp }));
     });
     var acts = [h('button', { class: 'btn s g', onclick: function () { var last = e.sets[e.sets.length - 1], n = mkSet(); if (last) n.w = last.w; e.sets.push(n); edit().then(redraw); } }, ic('plus'), 'مجموعة')];
-    if (live && T === 'weight_reps' && !e.sets.some(function (t) { return t.type === 'warmup'; })) acts.push(h('button', { class: 'btn s', onclick: function () { warmupSheet(s, e, edit, redraw); } }, '🔥 إحماء'));
+    if (live && T === 'weight_reps' && needsWarmup(s, e) && !e.sets.some(function (t) { return t.type === 'warmup'; })) acts.push(h('button', { class: 'btn s', onclick: function () { warmupSheet(s, e, edit, redraw); } }, '🔥 إحماء'));
     if (live && T === 'weight_reps' && isBarEq(ex)) acts.push(h('button', { class: 'btn s', onclick: function () {
       var cp = e.sets.filter(function (t) { return t.status === 'pending'; })[0], w0 = cp && cp.w != null ? cp.w : (TGT[e.id] && TGT[e.id].w) || warmupBase(e);
       plateCalc(w0, function (kg) { var t = e.sets.filter(function (x) { return x.status === 'pending'; })[0]; if (!t) { t = mkSet(); e.sets.push(t); } t.w = kg; edit().then(redraw); });
@@ -2834,7 +2848,7 @@ PAGES.settings = function () {
     h('div', { class: 'b', id: 'lastbk' }, bkTxt()))));
   root.appendChild(storageSec());
   root.appendChild(h('div', { class: 'sec' }, h('h2', {}, 'عن التطبيق'), h('div', { style: 'padding:14px 0 8px' }, brand()),
-    h('p', { class: 'mu sm' }, 'الإصدار 3.5.0 — يعمل بدون إنترنت. لا حساب ولا خادم ولا تحليلات، ولا يُرسل أي شيء لأي مكان. الحجم = مجموع (الوزن × التكرارات) لمجموعات العمل المكتملة في تمارين الوزن + التكرارات فقط.'),
+    h('p', { class: 'mu sm' }, 'الإصدار 3.5.1 — يعمل بدون إنترنت. لا حساب ولا خادم ولا تحليلات، ولا يُرسل أي شيء لأي مكان. الحجم = مجموع (الوزن × التكرارات) لمجموعات العمل المكتملة في تمارين الوزن + التكرارات فقط.'),
     h('p', { class: 'mu sm', style: 'margin-top:6px' }, swOn ? 'وضع التثبيت: يعمل بدون إنترنت (Service Worker مفعّل).' : 'وضع التشغيل: ملف محلي أو بدون Service Worker.')));
   return root;
 };
@@ -2846,7 +2860,7 @@ function exportData(opts) {
 function backupBuild(withPhotos, keepStamp) {
   var now = Date.now(); if (!keepStamp) bkStamp();
   var imgs = keys(S.img).map(function (id) { return { id: id, data: S.img[id] }; });
-  var data = { format: 'titanlog-local-backup', version: 1, app: '3.5.0', exportedAt: new Date().toISOString(), note: 'Weights are in kg.', settings: keepStamp ? Object.assign({}, S.set, { lastBackup: now }) : S.set, exercises: S.ex, programs: S.prog, sessions: S.ses, images: imgs, body: S.body };
+  var data = { format: 'titanlog-local-backup', version: 1, app: '3.5.1', exportedAt: new Date().toISOString(), note: 'Weights are in kg.', settings: keepStamp ? Object.assign({}, S.set, { lastBackup: now }) : S.set, exercises: S.ex, programs: S.prog, sessions: S.ses, images: imgs, body: S.body };
   if (!withPhotos) return Promise.resolve(JSON.stringify(data));
   return photosLoad().then(function () { data.photos = S.photos; return JSON.stringify(data); });
 }
